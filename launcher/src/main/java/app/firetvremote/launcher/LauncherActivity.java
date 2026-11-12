@@ -1,0 +1,633 @@
+package app.firetvremote.launcher;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.NetworkInterface;
+import java.util.Enumeration;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public final class LauncherActivity extends Activity {
+    private static final int PRIMARY_TEXT = 0xfff4f7ff;
+    private static final int SECONDARY_TEXT = 0xffb2bed2;
+    private static final String LOG_TAG = "FamilyTV";
+    private static final String PRIME_APP = "com.amazon.firebat";
+    private static final String PRIME_PLAYER = "com.amazon.avod";
+    private static final int[] APP_ACCENTS = {0xff33567f, 0xff553869, 0xff285a59, 0xff594451};
+    private final Map<String, Button> focusTargets = new LinkedHashMap<>();
+    private Button firstFavorite;
+    private TopShelf backdrop;
+    private FrameLayout scene;
+    private FrameLayout rows;
+    private View shade;
+    private final Map<LinearLayout, FrameLayout> trays = new LinkedHashMap<>();
+    private final Map<String, Integer> accents = new LinkedHashMap<>();
+    private float uiScale;
+    private int activeRow;
+    private final List<List<TileData>> rowData = new ArrayList<>();
+    private final List<List<Button>> rowButtons = new ArrayList<>();
+    private final Map<LinearLayout,Integer> rowIndices = new LinkedHashMap<>();
+    private final android.view.animation.Interpolator rowEase = new DecelerateInterpolator();
+
+    private static final class TileData {
+        String key, label, pkg;
+        Bitmap icon;
+        int color;
+        Runnable launch;
+    }
+    private String focusedKey;
+    private String focusOnReturn;
+    private String lastSavedFocus;
+    private Set<String> hiddenPackages;
+    private Set<String> ownTaskPackages;
+    private Button pendingTile;
+    private CharSequence pendingTileLabel;
+    private boolean launchDispatched;
+    private final Runnable releasePending = () -> {
+        if (pendingTile != null) {
+            if (pendingTileLabel != null) pendingTile.setText(pendingTileLabel);
+            pendingTile.setAlpha(1f);
+            pendingTile = null;
+            pendingTileLabel = null;
+        }
+        launchDispatched = false;
+    };
+    private RemoteServer remote;
+    private AlertDialog remoteDialog;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        hiddenPackages = AppCatalog.hiddenPackages(this);
+        ownTaskPackages = AppCatalog.readPackages(this, "own-task-apps.txt");
+
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        uiScale = metrics.widthPixels / 1920f;
+        scene = new FrameLayout(this);
+        scene.setBackgroundColor(0xff050609);
+        backdrop = new TopShelf(this);
+        scene.addView(backdrop, new FrameLayout.LayoutParams(-1, px(760)));
+        shade = new View(this);
+
+        setContentView(scene);
+        final String restore = savedInstanceState == null
+                ? getPreferences(MODE_PRIVATE).getString("last-focus", null)
+                : savedInstanceState.getString("last-focus");
+        lastSavedFocus = restore;
+        backdrop.worker.execute(() -> {
+            List<TileData> favorites = new ArrayList<>();
+            List<TileData> remaining = new ArrayList<>();
+            Map<String, AppCatalog.Entry> catalog = AppCatalog.list(this);
+            catalog.keySet().removeAll(hiddenPackages);
+            if (catalog.containsKey(PRIME_APP)) catalog.remove(PRIME_PLAYER);
+            try {
+                java.io.InputStream in = getAssets().open("rows.json");
+                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                byte[] buffer = new byte[2048]; int count;
+                while ((count=in.read(buffer))!=-1) bytes.write(buffer,0,count);
+                in.close();
+                org.json.JSONObject config = new org.json.JSONObject(bytes.toString("UTF-8"));
+                org.json.JSONArray configured = config.getJSONArray("rows");
+                for(int r=0;r<Math.min(4,configured.length());r++) {
+                    List<TileData> group = new ArrayList<>();
+                    org.json.JSONArray names=configured.getJSONObject(r).getJSONArray("packages");
+                    for(int i=0;i<names.length();i++) {
+                        String pkg=names.getString(i); AppCatalog.Entry entry=catalog.remove(pkg);
+                        if(entry!=null) group.add(tileData("app:"+pkg,entry));
+                    }
+                    rowData.add(group);
+                }
+            } catch(Exception e) { Log.w(LOG_TAG,"Rows config",e); }
+            if(rowData.isEmpty()) rowData.add(new ArrayList<>());
+            for(AppCatalog.Entry entry:catalog.values()) {
+                String pkg=entry.info.activityInfo.packageName;
+                String label=entry.info.loadLabel(getPackageManager()).toString().toLowerCase(java.util.Locale.ROOT);
+                int target = rowData.size()-1;
+                if(rowData.size()>1 && (label.contains("zee5") || label.contains("discovery"))) target=1;
+                rowData.get(target).add(tileData("app:"+pkg,entry));
+            }
+            for(int r=rowData.size()-1;r>=0;r--) if(rowData.get(r).isEmpty()) rowData.remove(r);
+            Intent settings = new Intent(android.provider.Settings.ACTION_SETTINGS);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                buildHome(favorites, remaining, settings);
+                restoreFocus(restore);
+            });
+        });
+    }
+
+    private TileData tileData(String key, AppCatalog.Entry entry) {
+        TileData tile = new TileData();
+        tile.key = key; tile.pkg = entry.info.activityInfo.packageName;
+        tile.label = entry.info.loadLabel(getPackageManager()).toString();
+        Drawable drawable = entry.info.loadIcon(getPackageManager());
+        int iw = Math.max(1, drawable.getIntrinsicWidth()), ih = Math.max(1, drawable.getIntrinsicHeight());
+        float factor = Math.min(322f/iw, 193f/ih);
+        tile.icon = Bitmap.createBitmap(Math.max(1, Math.round(iw*factor)), Math.max(1, Math.round(ih*factor)), Bitmap.Config.ARGB_8888);
+        drawable.setBounds(0, 0, tile.icon.getWidth(), tile.icon.getHeight());
+        drawable.draw(new Canvas(tile.icon));
+        tile.color = TopShelf.dominant(tile.icon);
+        backdrop.prepare(tile.pkg, tile.icon, tile.color);
+        int width = px(365), height = px(205);
+        Bitmap flat = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(flat);
+        android.graphics.Paint paint = new android.graphics.Paint(3);
+        android.graphics.RectF rect = new android.graphics.RectF(0,0,width,height);
+        paint.setColor(tile.color);
+        canvas.drawRoundRect(rect, px(40), px(40), paint);
+        paint.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN));
+        Bitmap art = null;
+        java.io.File override = new java.io.File("/sdcard/FamilyTV/tiles/"+tile.pkg+".png");
+        override.getParentFile().mkdirs();
+        if (override.isFile()) {
+            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+            opts.inJustDecodeBounds=true; android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
+            opts.inSampleSize=1;
+            while(opts.outWidth/opts.inSampleSize>width*2 || opts.outHeight/opts.inSampleSize>height*2) opts.inSampleSize*=2;
+            opts.inJustDecodeBounds=false; art=android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
+        }
+        Drawable banner = entry.info.activityInfo.loadBanner(getPackageManager());
+        if (banner == null) banner=entry.info.activityInfo.applicationInfo.loadBanner(getPackageManager());
+        if (art == null && banner != null) {
+            art=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
+            banner.setBounds(0,0,width,height); banner.draw(new Canvas(art));
+        }
+        if (art != null) {
+            float fit=Math.max(width/(float)art.getWidth(),height/(float)art.getHeight());
+            float w=art.getWidth()*fit,h=art.getHeight()*fit;
+            canvas.drawBitmap(art,null,new android.graphics.RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),paint);
+            art.recycle();
+        } else {
+            paint.setShader(new android.graphics.LinearGradient(0,0,width,height,tile.color,0xff141923,android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawRect(rect,paint); paint.setShader(null); paint.setXfermode(null);
+            float fit=Math.min(width*.85f/tile.icon.getWidth(),height*.75f/tile.icon.getHeight());
+            float w=tile.icon.getWidth()*fit,h=tile.icon.getHeight()*fit;
+            canvas.drawBitmap(tile.icon,null,new android.graphics.RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),paint);
+        }
+        tile.icon.recycle(); tile.icon=flat;
+        tile.launch = () -> launchApp(tile.label, tile.pkg, entry);
+        if("com.amazon.cloud9".equals(tile.pkg)) { Intent web=browserLaunchIntent(); tile.launch=()->openIntent("Internet",web); }
+        Log.i(LOG_TAG,"RowTile "+tile.pkg);
+
+        return tile;
+    }
+
+    private int px(int value) { return Math.round(value * uiScale); }
+
+    private void buildHome(List<TileData> favorites, List<TileData> remaining, Intent settings) {
+        rows = new FrameLayout(this);
+        rows.setClipChildren(false); rows.setClipToPadding(false);
+        FrameLayout viewport = new FrameLayout(this);
+        scene.addView(viewport, new FrameLayout.LayoutParams(-1, px(1026)));
+        viewport.addView(rows, new FrameLayout.LayoutParams(-1, px(2400)));
+        for(int i=0;i<rowData.size();i++) rowButtons.add(null);
+        List<Button> upper = ensureRow(0);
+        List<Button> lower = java.util.Collections.emptyList();
+        android.widget.TextClock clock = new android.widget.TextClock(this);
+        clock.setFormat12Hour("h:mm"); clock.setFormat24Hour("HH:mm");
+        clock.setTextColor(PRIMARY_TEXT); clock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(72));
+        clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        clock.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(px(330), px(96), Gravity.TOP | Gravity.RIGHT);
+        cp.topMargin = px(54); cp.rightMargin = px(220); scene.addView(clock, cp);
+        Button gear = new Button(this);
+        gear.setId(View.generateViewId()); gear.setText("⚙"); gear.setContentDescription("Fire TV settings");
+        gear.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(64));
+        gear.setTextColor(PRIMARY_TEXT); gear.setPadding(0,0,0,0); gear.setStateListAnimator(null);
+        gear.setBackground(new GlassTile(0xff303846, false, px(30), px(1)));
+        gear.setOnFocusChangeListener((v, focused) -> gear.setBackground(new GlassTile(0xff303846, focused, px(30), px(focused ? 4 : 1))));
+        gear.setOnClickListener(v -> openIntent("Settings", settings));
+        FrameLayout.LayoutParams gp = new FrameLayout.LayoutParams(px(96), px(96), Gravity.TOP | Gravity.RIGHT);
+        gp.topMargin = px(54); gp.rightMargin = px(96); scene.addView(gear, gp);
+        if (!upper.isEmpty()) {
+            firstFavorite = upper.get(0);
+            gear.setNextFocusDownId(firstFavorite.getId());
+            for (Button button : upper) button.setNextFocusUpId(gear.getId());
+        } else if (!lower.isEmpty()) firstFavorite = lower.get(0);
+        Log.i(LOG_TAG, "UI tile=" + px(460) + "x" + px(276) + " gap=" + px(40) + " tray=" + px(360));
+    }
+
+    private List<Button> ensureRow(int index) {
+        List<Button> buttons=rowButtons.get(index);
+        if(buttons==null) { buttons=addTray(rowData.get(index),index); rowButtons.set(index,buttons); }
+        return buttons;
+    }
+
+    @Override public boolean onKeyDown(int key, KeyEvent event) {
+        if ((key==KeyEvent.KEYCODE_DPAD_DOWN || key==KeyEvent.KEYCODE_DPAD_UP) && focusTargets.containsValue(getCurrentFocus())) {
+            int next=activeRow+(key==KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
+            if(next>=0 && next<rowData.size()) {
+                List<Button> buttons=ensureRow(next);
+                buttons.get(0).requestFocus(); return true;
+            }
+        }
+        return super.onKeyDown(key,event);
+    }
+
+    private List<Button> addTray(List<TileData> tiles, int rowIndex) {
+        FrameLayout tray = new FrameLayout(this);
+        tray.setClipChildren(true); tray.setClipToPadding(true);
+        FrameLayout.LayoutParams position = new FrameLayout.LayoutParams(px(1728), px(285));
+        position.leftMargin = px(96); position.topMargin = px(700 + rowIndex*260);
+        rows.addView(tray, position);
+        LinearLayout strip = new LinearLayout(this);
+        strip.setClipChildren(false); strip.setClipToPadding(false);
+        strip.setPadding(px(34), px(32), px(34), px(32));
+        FrameLayout clip = new FrameLayout(this);
+        tray.addView(clip, new FrameLayout.LayoutParams(-1,-1));
+        clip.setPadding(1, 0, 1, 0);
+        clip.addView(strip, new FrameLayout.LayoutParams(px(tiles.size()*423+68), -1));
+        trays.put(strip, tray); rowIndices.put(strip,rowIndex);
+        List<Button> buttons = new ArrayList<>();
+        for (TileData tile : tiles) {
+            accents.put(tile.key, tile.color);
+            BitmapDrawable icon = new BitmapDrawable(getResources(), tile.icon);
+            icon.setBounds(0,0,tile.icon.getWidth(),tile.icon.getHeight());
+            buttons.add(addShortcut(strip, tile.key, tile.label, icon, tile.color, rowIndex == 0, tile.launch));
+        }
+        for (int i=0; i<buttons.size(); i++) {
+            Button button = buttons.get(i);
+            button.setNextFocusLeftId(buttons.get(Math.max(0,i-1)).getId());
+            button.setNextFocusRightId(buttons.get(Math.min(buttons.size()-1,i+1)).getId());
+        }
+        tray.setBackground(traySurface(0xff506e9a));
+        return buttons;
+    }
+
+    private Drawable traySurface(int color) {
+        GradientDrawable panel = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xff202631, 0xff111620});
+        panel.setCornerRadius(px(62)); panel.setStroke(px(1), 0x66ffffff); return panel;
+    }
+
+    private void focusScene(LinearLayout strip, Button button, String key, int color, boolean featured) {
+        int index = strip.indexOfChild(button);
+        int maxScroll = Math.max(0, strip.getChildCount()*px(423) + px(30) - px(1728));
+        int offset = Math.min(maxScroll, Math.max(0, index*px(423)-px(423)));
+        strip.animate().translationX(-offset).setDuration(150).setInterpolator(rowEase).start();
+        int row = rowIndices.get(strip);
+        if (activeRow != row) {
+            activeRow = row;
+            rows.animate().translationY(-px(row*260)).setDuration(150).setInterpolator(rowEase).start();
+        }
+
+        for(Map.Entry<LinearLayout,FrameLayout> item:trays.entrySet()) {
+            int r=rowIndices.get(item.getKey());
+            item.getValue().animate().alpha(r==row ? 1f : r==row+1 ? .5f : 0f).setDuration(150).start();
+        }
+        String pkg = "favorite:browser".equals(key) ? "com.amazon.cloud9" : key.substring(key.indexOf(':')+1);
+        backdrop.show(pkg);
+    }
+
+    private void restoreFocus(String key) {
+        Button target = focusTargets.get(key);
+        if (target == null || !target.requestFocus()) { if (firstFavorite != null) firstFavorite.requestFocus(); }
+    }
+
+    @Override
+    protected void onPause() {
+        focusOnReturn = focusedKey;
+        if (!TextUtils.equals(lastSavedFocus, focusedKey)) {
+            getPreferences(MODE_PRIVATE).edit().putString("last-focus", focusedKey).apply();
+            lastSavedFocus = focusedKey;
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (launchDispatched) clearPending();
+        if (focusOnReturn != null && getCurrentFocus() != focusTargets.get(focusOnReturn)) {
+            restoreFocus(focusOnReturn);
+        }
+        focusOnReturn = null;
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (remoteDialog != null) remoteDialog.dismiss();
+        else if (firstFavorite != null) firstFavorite.requestFocus();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        state.putString("last-focus", focusedKey);
+        super.onSaveInstanceState(state);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        try {
+            remote = new RemoteServer(getSharedPreferences("paired-phones", MODE_PRIVATE),
+                    new RemoteServer.Listener() {
+                        public void onCommand(String action) {
+                            runOnUiThread(() -> handleRemote(action));
+                        }
+
+                        public void onPaired() {
+                            runOnUiThread(() -> {
+                                if (remoteDialog != null) remoteDialog.dismiss();
+                                Toast.makeText(LauncherActivity.this, "Phone paired",
+                                        Toast.LENGTH_SHORT).show();
+                            });
+                        }
+                    });
+        } catch (IOException e) {
+            Toast.makeText(this, "Wi-Fi remote could not start", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (remoteDialog != null) remoteDialog.dismiss();
+        if (remote != null) {
+            remote.close();
+            remote = null;
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        clearPending();
+        if (backdrop != null) backdrop.close();
+        super.onDestroy();
+    }
+
+    private void clearPending() {
+        if (pendingTile != null) pendingTile.removeCallbacks(releasePending);
+        releasePending.run();
+    }
+
+    @Override
+    public boolean onKeyUp(int code, KeyEvent event) {
+        if (code == KeyEvent.KEYCODE_MENU) {
+            showOptions();
+            return true;
+        }
+        return super.onKeyUp(code, event);
+    }
+
+    private void showOptions() {
+        if (remoteDialog != null) return;
+        showRemoteDialog(new AlertDialog.Builder(this).setTitle("Remote options")
+                .setItems(new String[] {"Pair a phone", "Forget all phones"}, (dialog, choice) -> {
+                    if (choice == 0) showPairing();
+                    else showRemoteDialog(new AlertDialog.Builder(this)
+                            .setTitle("Forget all paired phones?")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Forget", (confirm, which) ->
+                                    getSharedPreferences("paired-phones", MODE_PRIVATE).edit().clear().apply()));
+                }).setNegativeButton("Close", null));
+    }
+
+    private void showRemoteDialog(AlertDialog.Builder builder) {
+        AlertDialog dialog = builder.create();
+        remoteDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (remoteDialog == dialog) remoteDialog = null;
+        });
+        dialog.show();
+    }
+
+    private void showPairing() {
+        if (remote == null) return;
+        RemoteServer server = remote;
+        String code = server.startPairing().replaceAll("(.{4})(?!$)", "$1 ");
+        String address = localAddress();
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Pair a phone")
+                .setMessage("TV address: " + address + "\nPairing code: " + code
+                        + "\n\nEnter both in Family TV Remote within two minutes.")
+                .setNegativeButton("Cancel", null).create();
+        remoteDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            server.stopPairing();
+            if (remoteDialog == dialog) remoteDialog = null;
+        });
+        dialog.show();
+    }
+
+    private String localAddress() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                Enumeration<java.net.InetAddress> addresses = interfaces.nextElement().getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress address = addresses.nextElement();
+                    if (address instanceof Inet4Address && address.isSiteLocalAddress()) {
+                        return address.getHostAddress();
+                    }
+                }
+            }
+        } catch (IOException ignored) {}
+        return "See Fire TV Settings › About › Network";
+    }
+
+    private void handleRemote(String action) {
+        if (remote == null) return;
+        if ("HOME".equals(action)) {
+            if (remoteDialog != null) remoteDialog.dismiss();
+            if (firstFavorite != null) firstFavorite.requestFocus();
+            return;
+        }
+        if ("AMAZON".equals(action)) {
+            openIntent("Amazon Home", new Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return;
+        }
+        if ("OPTIONS".equals(action)) {
+            showOptions();
+            return;
+        }
+        int key;
+        switch (action) {
+            case "UP": key = KeyEvent.KEYCODE_DPAD_UP; break;
+            case "DOWN": key = KeyEvent.KEYCODE_DPAD_DOWN; break;
+            case "LEFT": key = KeyEvent.KEYCODE_DPAD_LEFT; break;
+            case "RIGHT": key = KeyEvent.KEYCODE_DPAD_RIGHT; break;
+            case "OK": key = KeyEvent.KEYCODE_DPAD_CENTER; break;
+            case "BACK":
+                if (remoteDialog != null) remoteDialog.dismiss();
+                else if (firstFavorite != null) firstFavorite.requestFocus();
+                return;
+            default: return;
+        }
+        KeyEvent down = new KeyEvent(KeyEvent.ACTION_DOWN, key);
+        KeyEvent up = new KeyEvent(KeyEvent.ACTION_UP, key);
+        if (remoteDialog != null) {
+            remoteDialog.dispatchKeyEvent(down);
+            if (remoteDialog != null) remoteDialog.dispatchKeyEvent(up);
+        } else {
+            dispatchKeyEvent(down);
+            dispatchKeyEvent(up);
+        }
+    }
+
+    private Button addShortcut(LinearLayout row, String key, String label, Drawable icon, int color,
+                               boolean featured, Runnable onSelect) {
+        Button button = new Button(this);
+        button.setId(View.generateViewId());
+        button.setAllCaps(false);
+        button.setText("");
+        button.setContentDescription(label);
+        button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(40));
+        button.setMaxLines(1);
+        button.setEllipsize(TextUtils.TruncateAt.END);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(0, 0, 0, 0);
+        button.setStateListAnimator(null);
+        if (icon != null) {
+            final Drawable logo = icon;
+            // Center the predecoded logo independently of the loading-state text.
+            button = new Button(this) {
+                @Override protected void onDraw(Canvas canvas) {
+                    if (getText().length() == 0) {
+                        canvas.save();
+                        canvas.translate((getWidth()-logo.getBounds().width())/2f, (getHeight()-logo.getBounds().height())/2f);
+                        logo.draw(canvas); canvas.restore();
+                    }
+                    super.onDraw(canvas);
+                }
+            };
+            button.setId(View.generateViewId()); button.setText(""); button.setContentDescription(label);
+            button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(40));
+            button.setPadding(0,0,0,0); button.setGravity(Gravity.CENTER); button.setStateListAnimator(null);
+        }
+        final Button tileButton = button;
+        Drawable idleSurface = new GlassTile(TopShelf.mix(color, 0xff202635, .7f), false, px(56), px(1));
+        Drawable focusSurface = new GlassTile(TopShelf.mix(color, 0xff505868, .6f), true, px(56), px(4));
+        button.setBackground(null);
+        button.setTextColor(PRIMARY_TEXT);
+        button.setFocusable(true);
+        button.setAlpha(.85f);
+        button.setElevation(0);
+        tileButton.setOnFocusChangeListener((view, focused) -> {
+            tileButton.setAlpha(focused ? 1f : .8f);
+            float scale = focused ? 1.08f : 1f;
+            tileButton.animate().cancel();
+            tileButton.animate().scaleX(scale).scaleY(scale)
+                    
+                    .setInterpolator(new DecelerateInterpolator())
+                    .setDuration(120).start();
+            if (focused) {
+                focusedKey = key;
+                Log.i(LOG_TAG, "Focus " + key);
+                focusScene(row, tileButton, key, color, featured);
+            }
+        });
+        tileButton.setOnClickListener(view -> {
+            if ("options".equals(key)) {
+                onSelect.run();
+                return;
+            }
+            if (pendingTile != null) return;
+            pendingTile = tileButton;
+            if ("app:in.startv.hotstar".equals(key)) {
+                pendingTileLabel = tileButton.getText();
+                tileButton.setText("Loading…");
+                tileButton.setAlpha(0.85f);
+            } else {
+                tileButton.setAlpha(0.55f);
+            }
+            tileButton.postDelayed(releasePending, 5000);
+            tileButton.postOnAnimation(() -> tileButton.postOnAnimation(() -> {
+                if (pendingTile != tileButton || isFinishing()) return;
+                launchDispatched = true;
+                onSelect.run();
+            }));
+        });
+        focusTargets.put(key, button);
+
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(px(365), px(205));
+        size.setMargins(0, 0, px(58), 0);
+        row.addView(button, size);
+        return button;
+    }
+
+    private Intent browserLaunchIntent() {
+        PackageManager packages = getPackageManager();
+        AppCatalog.Entry silk = AppCatalog.find(this, "com.amazon.cloud9");
+        if (silk != null) return silk.intent();
+        Intent web = browserIntent();
+        ResolveInfo result = packages.resolveActivity(web, PackageManager.MATCH_DEFAULT_ONLY);
+        if (result != null && !"android".equals(result.activityInfo.packageName)) {
+            web.setComponent(new android.content.ComponentName(result.activityInfo.packageName,
+                    result.activityInfo.name));
+            return web;
+        }
+        return null;
+    }
+
+    private Intent browserIntent() {
+        return new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/"))
+                .addCategory(Intent.CATEGORY_BROWSABLE);
+    }
+
+    private void launchApp(String label, String packageName, AppCatalog.Entry entry) {
+        if (entry != null) {
+            Log.i(LOG_TAG, "Launch route " + packageName + " callerTask=" + getTaskId()
+                    + " mode=" + entry.info.activityInfo.launchMode
+                    + " affinity=" + entry.info.activityInfo.taskAffinity);
+        }
+        Intent intent = entry == null ? null : entry.intent();
+        if (intent != null && ownTaskPackages.contains(packageName)) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        }
+        openIntent(label, intent);
+    }
+
+    private void openIntent(String label, Intent intent) {
+        if (intent != null) {
+            try {
+                startActivity(intent);
+                android.content.ComponentName component = intent.resolveActivity(getPackageManager());
+                Log.i(LOG_TAG, "Opened " + label + " -> "
+                        + (component == null ? "system resolved" : component.flattenToShortString()));
+                return;
+            } catch (ActivityNotFoundException | SecurityException ignored) {
+                Log.w(LOG_TAG, "Activity rejected: " + label, ignored);
+            }
+        }
+        Log.w(LOG_TAG, "No launchable activity: " + label);
+        clearPending();
+        Toast.makeText(this, "Could not open " + label, Toast.LENGTH_SHORT).show();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+}

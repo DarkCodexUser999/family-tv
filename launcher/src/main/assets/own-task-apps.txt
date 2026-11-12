@@ -1,0 +1,3 @@
+# Packages that receive NEW_TASK | RESET_TASK_IF_NEEDED.
+in.startv.hotstar
+com.onemainstream.sonyliv.android

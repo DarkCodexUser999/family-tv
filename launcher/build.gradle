@@ -1,0 +1,23 @@
+plugins {
+    id 'com.android.application' version '8.13.2'
+}
+
+android {
+    namespace 'app.firetvremote.launcher'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'app.firetvremote.launcher'
+        minSdk 22
+        targetSdk 36
+        versionCode 8
+        versionName '0.8'
+    }
+
+    sourceSets.main.java.srcDir '../shared/src/main/java'
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

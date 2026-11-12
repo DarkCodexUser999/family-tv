@@ -1,0 +1,21 @@
+.gradle/
+**/build/
+local.properties
+.DS_Store
+._*
+*.jks
+*.keystore
+
+# Local device evidence, backups and generated artifacts
+ui-verification/
+ui-backup-before-tvos/
+*.apk
+*.aab
+*.dex
+*.class
+*.log
+*.pem
+*.key
+.env
+.env.*
+!.env.example

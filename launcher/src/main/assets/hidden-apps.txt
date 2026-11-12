@@ -1,0 +1,12 @@
+# One package per line. Remove a line, rebuild the launcher, and install the update to unhide it.
+com.amazon.alexashopping
+com.amazon.gamehub
+com.amazon.tahoe
+com.amazon.shoptv.firetv.client
+com.amazon.bueller.photos
+com.amazon.hedwig
+com.amazon.minitv.android.app
+com.amazon.bueller.music
+com.imdb.livingroom.firetv
+com.amazon.imdb.tv.android.app
+com.onemainstream.sonyliv.android
