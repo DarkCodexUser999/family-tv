@@ -43,11 +43,29 @@ The historical [phase-2 audit](../phase-2-launch-audit.md) covers an earlier bui
 
 - Reliable, supported HOME takeover on this firmware is unresolved.
 - Universal BACK return is not implemented.
-- Initial unseen-row peek and roughly 4.5 visible tiles are incomplete.
+- The unseen-row peek is implemented and checked on the Mac; TV verification is pending. Roughly 4.5 visible tiles remains incomplete.
 - Focus-path allocations, row creation work and container flattening remain.
 - Generic installed-video classification is incomplete beyond configured packages and ZEE5/discovery label matching.
-- Repeat-aware animation skipping and focused-animation-only hardware layer control are unfinished.
+- Repeat-aware animation skipping is implemented locally; device verification and focused-animation-only hardware layer control remain pending.
 - The phone remote is not a system-wide controller; volume/power support is absent.
 - Build identifiers remain launcher 0.8 and remote 0.2 across several development iterations; they are not published release milestones.
 
 Raw device logs, serials, local addresses, signing material and personal screenshots are intentionally excluded from this public repository.
+
+## Next-row preview update — November 13, 2026
+
+Implemented a preview for rows that have not been opened yet. Each preview uses a single non-interactive View sharing pre-rendered tile bitmaps. The focused row remains in the bottom slot; previous rows fade away, and the next row appears at half opacity. Full interactive rows remain lazy. No package discovery or bitmap decoding was added to focus handling.
+
+Local validation: `JAVA_HOME="$(/usr/libexec/java_home -v 17)" sh tests/check-rows.sh` checks one through four rows, DOWN/UP state transitions, the focused row position, previous-row visibility and approximately 25% next-tile exposure. `sh build-launcher.sh` builds the APK and verifies its development signature. These checks validate placement rules and compilation, not Android rendering or performance.
+
+Device acceptance check, when the TV is available: confirm the initial next-row peek; navigate DOWN/UP through every configured row; confirm no preview remains after the last row, no double drawing when revisiting a built row, and that the backdrop stays visible. Repeat with one row and four rows. On-TV verification is pending; no new device or frame-time results are claimed.
+
+## Navigation and launch-overhead update — November 13, 2026
+
+Fast individual direction presses (under 100 ms apart) and repeated held-key events snap focus scale and row scrolling to their target. Normal moves use 100 ms animations. Horizontal navigation no longer restarts row-visibility animations; focus reuses the existing interpolator and precomputed package string. This removes avoidable work but does not establish an end-to-end input latency.
+
+Launch intents and per-app flags are prepared on the startup artwork worker. The resolved component and launch category are retained; Silk keeps its direct browser route. Launch logging uses the cached component rather than a PackageManager lookup. Click dispatch now uses a reusable callback after one scheduled feedback frame, replacing two nested frame callbacks. Loading feedback, launch debounce, app task flags and BACK behavior are preserved.
+
+Backdrop requests invalidate old results as soon as focus changes. Pending updates and neighbour prefetch stop when the launcher pauses, then resume after return; a decode already running may finish. This avoids scheduling decorative work during another app's startup. No force-stopping, data clearing or persistent service was added.
+
+Local checks: `JAVA_HOME="$(/usr/libexec/java_home -v 17)" sh tests/check-navigation.sh` exercises first press, fast taps, held-key delay, normal input, old timestamps and recovery after idle. Row checks and the signed APK build also passed. No TV was connected: app launch/BACK checks, animation appearance, PSS and latency measurements remain pending. First navigation to an unbuilt row still creates its Views on the UI thread. Streaming apps control their own cold-start and exit times; this update cannot guarantee faster app closing.

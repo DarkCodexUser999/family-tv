@@ -17,11 +17,11 @@ final class TopShelf extends FrameLayout {
     private final Map<String, File> sources = new HashMap<>();
     private final List<String> order = new ArrayList<>();
     private final ImageView[] layers = new ImageView[1];
-    private int visible;
     private volatile String requested;
     private volatile boolean closed;
     private Future<?> pending;
     private String displayed;
+    private volatile boolean suspended;
 
     TopShelf(Context context) {
         super(context);
@@ -109,27 +109,41 @@ final class TopShelf extends FrameLayout {
 
     private String queued;
     private final Runnable update = () -> showNow(queued);
-    void show(String pkg) { queued=pkg; removeCallbacks(update); postDelayed(update,150); }
-    private void showNow(String pkg) {
+    void show(String pkg) {
+        // Invalidate an old in-flight result immediately, before the settle delay.
         requested = pkg;
-        if (pkg.equals(displayed)) return;
+        queued = pkg;
+        removeCallbacks(update);
+        if (!suspended && !closed) postDelayed(update,150);
+    }
+    void suspend() {
+        suspended = true;
+        removeCallbacks(update);
+        if (pending != null) pending.cancel(false);
+    }
+    void resume() {
+        suspended = false;
+        if (queued != null && !closed) show(queued);
+    }
+    private void showNow(String pkg) {
+        if (closed || suspended || !pkg.equals(requested) || pkg.equals(displayed)) return;
         if (pending != null) pending.cancel(false);
         pending = worker.submit(() -> {
             Bitmap art = load(pkg);
-            if (closed || !pkg.equals(requested)) return;
+            if (closed || suspended || !pkg.equals(requested)) return;
             post(() -> {
-                if (closed || !pkg.equals(requested) || art == null) return;
+                if (closed || suspended || !pkg.equals(requested) || art == null) return;
                 displayed = pkg;
                 layers[0].setImageBitmap(art); layers[0].setAlpha(1f);
-                android.util.Log.i("FamilyTV", "Backdrop " + pkg + " 1280x480 RGB_565");
+                android.util.Log.i("FamilyTV", "Backdrop " + pkg + " 640x240 RGB_565");
             });
             int index = order.indexOf(pkg);
             for (int delta : new int[]{-1, 1}) {
-                if (closed || !pkg.equals(requested)) return;
+                if (closed || suspended || !pkg.equals(requested)) return;
                 int neighbour = index + delta;
                 if (neighbour >= 0 && neighbour < order.size()) load(order.get(neighbour));
             }
         });
     }
-    void close() { closed = true; worker.shutdownNow(); cache.evictAll(); }
+    void close() { closed = true; suspend(); worker.shutdownNow(); cache.evictAll(); }
 }

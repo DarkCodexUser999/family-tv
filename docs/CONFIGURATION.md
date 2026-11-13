@@ -16,7 +16,7 @@ Asset edits require rebuilding and reinstalling the launcher. They are not live 
 
 Only installed, launchable, non-hidden packages are displayed. Empty rows are omitted. Unlisted apps enter the last row; unlisted apps whose display label contains ZEE5/discovery are routed to the second configured row. Generic video-app classification is not implemented. Package identifiers can vary between distributions: inspect the installed package before adding it. About six tiles per row is a design target, not a hard limit.
 
-Rows after the first are created on first navigation to them. The previous rows fade away, leaving the upper screen for artwork. An unbuilt row currently has no preview; the requested always-visible next-row peek is unfinished.
+Rows after the first create their full interactive controls on first navigation. Before that, a lightweight, non-focusable preview draws the existing tile bitmaps at half opacity. About the top quarter of the next row is visible below the focused row. Earlier rows fade away to keep the upper screen for artwork. Once a row is built, its real controls supply the preview instead, avoiding duplicate artwork. TV visual/performance verification of this update is pending.
 
 ## Hidden tiles
 
