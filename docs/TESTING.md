@@ -69,3 +69,11 @@ Launch intents and per-app flags are prepared on the startup artwork worker. The
 Backdrop requests invalidate old results as soon as focus changes. Pending updates and neighbour prefetch stop when the launcher pauses, then resume after return; a decode already running may finish. This avoids scheduling decorative work during another app's startup. No force-stopping, data clearing or persistent service was added.
 
 Local checks: `JAVA_HOME="$(/usr/libexec/java_home -v 17)" sh tests/check-navigation.sh` exercises first press, fast taps, held-key delay, normal input, old timestamps and recovery after idle. Row checks and the signed APK build also passed. No TV was connected: app launch/BACK checks, animation appearance, PSS and latency measurements remain pending. First navigation to an unbuilt row still creates its Views on the UI thread. Streaming apps control their own cold-start and exit times; this update cannot guarantee faster app closing.
+
+## Remembered row focus update — November 13, 2026
+
+Added session-only selected columns per row and restoration of the saved app in a lazy lower row. Previously DOWN/UP always chose the first tile, and a saved lower-row key fell back to Favorites because its controls had not been created.
+
+`sh tests/check-rows.sh` now also tests round-trip row selection, first visits to shorter rows, lookup of a saved app in an unopened row, reordered catalogs, removed/hidden keys, null saved focus and invalid selections. Existing row geometry and rapid-navigation checks pass. The direct launcher build and APK signature verification pass. These are Mac-side logic/build checks; Android focus, scroll position and BACK/launch integration still require the TV.
+
+TV acceptance: choose the fourth Favorite, enter Tools, choose its second tile, then move UP/DOWN and confirm both selections return. Restart while a lower-row tile was last focused and confirm that row opens with the saved tile. Remove/hide the saved tile in a test configuration and verify the Favorites fallback. No new device latency, memory or playback results are claimed.

@@ -43,3 +43,9 @@ Use artwork you have permission to use. Tiles center-crop overrides; otherwise t
 ## Display sizing
 
 The tested output is 1920×1080 at 320 dpi, which is distinct from a television's physical panel resolution. Current tiles are about 19% of output width, 16:9, with about 3% horizontal gaps and 5% side margins. Four whole tiles fit at this configuration; 4.5 visible tiles is not achieved. Vertical positions currently scale from width using the tested 16:9 output; unusual aspect ratios are not verified.
+
+## Remembered row focus
+
+Moving DOWN or UP returns to the last selected tile in that row for the current launcher session. The first visit uses the source row's selected column, clamped for a shorter destination row. Focus is remembered as an integer per row without disk writes on direction presses.
+
+The existing last-app preference also restores an app in a lazy lower row after launcher recreation: Family TV locates the saved key and creates that row before requesting focus. If the app was removed, hidden or no longer appears in the catalog, focus falls back to the first available Favorite as before. Per-row history resets on recreation; the single last-app key remains persisted. Device verification is pending.

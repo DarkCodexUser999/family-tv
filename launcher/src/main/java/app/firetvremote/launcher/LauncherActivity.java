@@ -56,6 +56,7 @@ public final class LauncherActivity extends Activity {
     private final Map<String, Integer> accents = new LinkedHashMap<>();
     private float uiScale;
     private int activeRow;
+    private RowFocusMemory rowFocus;
     private boolean fastNavigation;
     private long lastNavigationDown = -1;
     private View[] rowPreviews;
@@ -220,6 +221,12 @@ public final class LauncherActivity extends Activity {
         FrameLayout viewport = new FrameLayout(this);
         scene.addView(viewport, new FrameLayout.LayoutParams(-1, px(1026)));
         viewport.addView(rows, new FrameLayout.LayoutParams(-1, px(2400)));
+        String[][] keys = new String[rowData.size()][];
+        for (int row = 0; row < rowData.size(); row++) {
+            keys[row] = new String[rowData.get(row).size()];
+            for (int col = 0; col < keys[row].length; col++) keys[row][col] = rowData.get(row).get(col).key;
+        }
+        rowFocus = new RowFocusMemory(keys);
         rowPreviews = new View[rowData.size()];
         for(int i=0;i<rowData.size();i++) {
             rowButtons.add(null);
@@ -283,7 +290,9 @@ public final class LauncherActivity extends Activity {
             int next=activeRow+(key==KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
             if(next>=0 && next<rowData.size()) {
                 List<Button> buttons=ensureRow(next);
-                buttons.get(0).requestFocus(); return true;
+                int column = rowFocus.selection(next, rowFocus.selection(activeRow, 0));
+                if (column >= 0) buttons.get(column).requestFocus();
+                return true;
             }
         }
         return super.onKeyDown(key,event);
@@ -364,6 +373,7 @@ public final class LauncherActivity extends Activity {
             strip.animate().translationX(-offset).setDuration(100).setInterpolator(rowEase).start();
         }
         int row = rowIndices.get(strip);
+        rowFocus.remember(row, index);
         // Horizontal movement does not alter row visibility: avoid redundant fades.
         if (activeRow != row) {
             activeRow = row;
@@ -390,6 +400,14 @@ public final class LauncherActivity extends Activity {
 
     private void restoreFocus(String key) {
         Button target = focusTargets.get(key);
+        // The saved app may live in a row whose interactive Views are still lazy.
+        if (target == null && rowFocus != null) {
+            int row = rowFocus.rowOf(key);
+            if (row >= 0) {
+                ensureRow(row);
+                target = focusTargets.get(key);
+            }
+        }
         if (target == null || !target.requestFocus()) { if (firstFavorite != null) firstFavorite.requestFocus(); }
     }
 
