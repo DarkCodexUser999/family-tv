@@ -1,5 +1,7 @@
 # Family TV
 
+[![Build and regression checks](https://github.com/DarkCodexUser999/family-tv/actions/workflows/checks.yml/badge.svg)](https://github.com/DarkCodexUser999/family-tv/actions/workflows/checks.yml)
+
 A lightweight, family-oriented Fire TV launcher and Android companion remote, designed around an older Fire TV Stick and a small living-room television.
 
 **Status: experimental MVP.** The launcher is usable as a normal app. It is not a proven Amazon Home replacement, and the companion remote is not a system-wide remote. See [known limitations and test results](docs/TESTING.md) before installing.
@@ -41,7 +43,8 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 2. Customize [rows, hidden tiles and artwork](docs/CONFIGURATION.md).
 3. Review [architecture and pairing](docs/ARCHITECTURE.md).
 4. Check [development history and device observations](docs/TESTING.md).
-5. Use [restore instructions](docs/SETUP.md#restore-and-uninstall) if you want to remove Family TV.
+5. See [automated checks](docs/CI.md) for build and regression results.
+6. Use [restore instructions](docs/SETUP.md#restore-and-uninstall) if you want to remove Family TV.
 
 ## Repository layout
 

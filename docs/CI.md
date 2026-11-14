@@ -1,0 +1,30 @@
+# Automated checks
+
+The **Build and regression checks** GitHub Actions workflow runs on pushes, pull requests and manual dispatch. It runs the same local checks, installs SDK 36 / Build Tools 35.0.0, builds the launcher and phone companion, and verifies their development signatures on an Ubuntu runner using JDK 17.
+
+## Run the same checks locally
+
+On the Mac, from the repository directory:
+
+```sh
+export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+sh tests/check-all.sh
+sh build-launcher.sh
+sh build-launcher.sh remote
+```
+
+The test script requires JDK 17 and Python 3. APK builds additionally require the SDK described in SETUP.md. Generated files remain in the ignored build folders on your project drive.
+
+## Read the result
+
+Open the repository's **Actions** tab, select **Build and regression checks**, and open a run. Green means all listed checks/builds passed; red means a step failed. Expand that step to see the error. The final step summarizes exactly what was validated.
+
+The README badge links to this workflow. To rerun manually, choose **Run workflow** on its Actions page. A new push on the same branch cancels an older in-progress run.
+
+## Scope and credentials
+
+The workflow has read-only repository permissions, uses commit-pinned official checkout/Java actions, and does not use the maintainer's signing key or repository secrets. It creates a temporary development key on the runner and does not upload APKs or keys. A runner APK is not a signed update for your locally installed build.
+
+CI is a source/build check, not a device check. It does not verify Android rendering, Fire OS compatibility, HOME/BACK takeover, phone pairing UX, streaming playback, PSS or input latency. Those still need the actual hardware. If Actions is disabled or account limits prevent a run, the code may be pushed without a completed check; inspect the run status rather than assuming success.
+
+References: [checkout](https://github.com/actions/checkout), [setup-java](https://github.com/actions/setup-java), [SDK package manager](https://developer.android.com/tools/sdkmanager).

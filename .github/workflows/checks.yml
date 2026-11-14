@@ -1,0 +1,57 @@
+name: Build and regression checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-and-build:
+    name: Java checks and both Android APKs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Run regression and configuration checks
+        run: sh tests/check-all.sh
+      - name: Install required Android SDK packages
+        shell: bash
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          # Ignore yes's SIGPIPE, but retain sdkmanager's exit status.
+          set +o pipefail
+          yes | "$sdkmanager" --licenses > /dev/null
+          set -o pipefail
+          "$sdkmanager" --install "platforms;android-36" "build-tools;35.0.0"
+      - name: Build and verify launcher APK
+        run: sh build-launcher.sh
+      - name: Build and verify remote APK
+        run: sh build-launcher.sh remote
+      - name: Report validation scope
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+          ## Family TV checks passed
+          - Row presentation, row focus and navigation timing regression checks
+          - Remote input and protocol proof checks
+          - JSON, manifest and shell syntax checks
+          - Both APK builds and development signature verification
+
+          **No TV or emulator tests ran.** Rendering, Fire OS HOME/BACK behavior,
+          playback, device memory and measured latency still need device testing.
+          The runner creates a temporary development key; it is not uploaded.
+          SUMMARY
