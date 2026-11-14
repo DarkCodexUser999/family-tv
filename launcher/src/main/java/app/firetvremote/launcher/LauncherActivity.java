@@ -6,7 +6,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Typeface;
@@ -21,11 +20,9 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.OvershootInterpolator;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
@@ -41,19 +38,15 @@ import java.util.Set;
 
 public final class LauncherActivity extends Activity {
     private static final int PRIMARY_TEXT = 0xfff4f7ff;
-    private static final int SECONDARY_TEXT = 0xffb2bed2;
     private static final String LOG_TAG = "FamilyTV";
     private static final String PRIME_APP = "com.amazon.firebat";
     private static final String PRIME_PLAYER = "com.amazon.avod";
-    private static final int[] APP_ACCENTS = {0xff33567f, 0xff553869, 0xff285a59, 0xff594451};
     private final Map<String, Button> focusTargets = new LinkedHashMap<>();
     private Button firstFavorite;
     private TopShelf backdrop;
     private FrameLayout scene;
     private FrameLayout rows;
-    private View shade;
     private final Map<LinearLayout, FrameLayout> trays = new LinkedHashMap<>();
-    private final Map<String, Integer> accents = new LinkedHashMap<>();
     private float uiScale;
     private int activeRow;
     private RowFocusMemory rowFocus;
@@ -89,6 +82,7 @@ public final class LauncherActivity extends Activity {
         launchDispatched = false;
     };
     private RemoteServer remote;
+    private int remoteSession;
     private AlertDialog remoteDialog;
 
     @Override
@@ -103,7 +97,6 @@ public final class LauncherActivity extends Activity {
         scene.setBackgroundColor(0xff050609);
         backdrop = new TopShelf(this);
         scene.addView(backdrop, new FrameLayout.LayoutParams(-1, px(760)));
-        shade = new View(this);
 
         setContentView(scene);
         final String restore = savedInstanceState == null
@@ -111,25 +104,33 @@ public final class LauncherActivity extends Activity {
                 : savedInstanceState.getString("last-focus");
         lastSavedFocus = restore;
         backdrop.worker.execute(() -> {
-            List<TileData> favorites = new ArrayList<>();
-            List<TileData> remaining = new ArrayList<>();
             Map<String, AppCatalog.Entry> catalog = AppCatalog.list(this);
             catalog.keySet().removeAll(hiddenPackages);
             if (catalog.containsKey(PRIME_APP)) catalog.remove(PRIME_PLAYER);
             try {
-                java.io.InputStream in = getAssets().open("rows.json");
                 java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
-                byte[] buffer = new byte[2048]; int count;
-                while ((count=in.read(buffer))!=-1) bytes.write(buffer,0,count);
-                in.close();
+                try (java.io.InputStream in = getAssets().open("rows.json")) {
+                    byte[] buffer = new byte[2048]; int count;
+                    while ((count=in.read(buffer))!=-1) bytes.write(buffer,0,count);
+                }
                 org.json.JSONObject config = new org.json.JSONObject(bytes.toString("UTF-8"));
                 org.json.JSONArray configured = config.getJSONArray("rows");
-                for(int r=0;r<Math.min(4,configured.length());r++) {
+                // Validate all row definitions before removing anything from the catalog.
+                List<List<String>> definitions = new ArrayList<>();
+                for (int r = 0; r < Math.min(4, configured.length()); r++) {
+                    org.json.JSONArray names = configured.getJSONObject(r).getJSONArray("packages");
+                    List<String> packages = new ArrayList<>();
+                    for (int i = 0; i < names.length(); i++) packages.add(names.getString(i));
+                    definitions.add(packages);
+                }
+                for (List<String> packages : definitions) {
                     List<TileData> group = new ArrayList<>();
-                    org.json.JSONArray names=configured.getJSONObject(r).getJSONArray("packages");
-                    for(int i=0;i<names.length();i++) {
-                        String pkg=names.getString(i); AppCatalog.Entry entry=catalog.remove(pkg);
-                        if(entry!=null) group.add(tileData("app:"+pkg,entry));
+                    for (String pkg : packages) {
+                        AppCatalog.Entry entry = catalog.remove(pkg);
+                        if (entry != null) {
+                            TileData tile = safeTileData(pkg, entry);
+                            if (tile != null) group.add(tile);
+                        }
                     }
                     rowData.add(group);
                 }
@@ -137,19 +138,30 @@ public final class LauncherActivity extends Activity {
             if(rowData.isEmpty()) rowData.add(new ArrayList<>());
             for(AppCatalog.Entry entry:catalog.values()) {
                 String pkg=entry.info.activityInfo.packageName;
-                String label=entry.info.loadLabel(getPackageManager()).toString().toLowerCase(java.util.Locale.ROOT);
+                TileData tile = safeTileData(pkg, entry);
+                if (tile == null) continue;
+                String label = tile.label.toLowerCase(java.util.Locale.ROOT);
                 int target = rowData.size()-1;
                 if(rowData.size()>1 && (label.contains("zee5") || label.contains("discovery"))) target=1;
-                rowData.get(target).add(tileData("app:"+pkg,entry));
+                rowData.get(target).add(tile);
             }
             for(int r=rowData.size()-1;r>=0;r--) if(rowData.get(r).isEmpty()) rowData.remove(r);
             Intent settings = new Intent(android.provider.Settings.ACTION_SETTINGS);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
-                buildHome(favorites, remaining, settings);
+                buildHome(settings);
                 restoreFocus(restore);
             });
         });
+    }
+
+    private TileData safeTileData(String pkg, AppCatalog.Entry entry) {
+        try { return tileData("app:" + pkg, entry); }
+        catch (RuntimeException error) {
+            // A package can be removed/updated while the startup snapshot is being built.
+            Log.w(LOG_TAG, "Skipping unavailable app " + pkg, error);
+            return null;
+        }
     }
 
     private TileData tileData(String key, AppCatalog.Entry entry) {
@@ -174,14 +186,16 @@ public final class LauncherActivity extends Activity {
         paint.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN));
         Bitmap art = null;
         java.io.File override = new java.io.File("/sdcard/FamilyTV/tiles/"+tile.pkg+".png");
-        override.getParentFile().mkdirs();
-        if (override.isFile()) {
-            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
-            opts.inJustDecodeBounds=true; android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
-            opts.inSampleSize=1;
-            while(opts.outWidth/opts.inSampleSize>width*2 || opts.outHeight/opts.inSampleSize>height*2) opts.inSampleSize*=2;
-            opts.inJustDecodeBounds=false; art=android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
-        }
+        try {
+            override.getParentFile().mkdirs();
+            if (override.isFile()) {
+                android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+                opts.inJustDecodeBounds=true; android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
+                opts.inSampleSize=1;
+                while(opts.outWidth/opts.inSampleSize>width*2 || opts.outHeight/opts.inSampleSize>height*2) opts.inSampleSize*=2;
+                opts.inJustDecodeBounds=false; art=android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
+            }
+        } catch (SecurityException error) { Log.w(LOG_TAG, "Tile override unavailable", error); }
         Drawable banner = entry.info.activityInfo.loadBanner(getPackageManager());
         if (banner == null) banner=entry.info.activityInfo.applicationInfo.loadBanner(getPackageManager());
         if (art == null && banner != null) {
@@ -215,7 +229,7 @@ public final class LauncherActivity extends Activity {
 
     private int px(int value) { return Math.round(value * uiScale); }
 
-    private void buildHome(List<TileData> favorites, List<TileData> remaining, Intent settings) {
+    private void buildHome(Intent settings) {
         rows = new FrameLayout(this);
         rows.setClipChildren(false); rows.setClipToPadding(false);
         FrameLayout viewport = new FrameLayout(this);
@@ -235,8 +249,7 @@ public final class LauncherActivity extends Activity {
                 rows.addView(rowPreviews[i], rowPosition(i));
             }
         }
-        List<Button> upper = ensureRow(0);
-        List<Button> lower = java.util.Collections.emptyList();
+        List<Button> upper = rowData.isEmpty() ? java.util.Collections.emptyList() : ensureRow(0);
         android.widget.TextClock clock = new android.widget.TextClock(this);
         clock.setFormat12Hour("h:mm"); clock.setFormat24Hour("HH:mm");
         clock.setTextColor(PRIMARY_TEXT); clock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(72));
@@ -248,8 +261,10 @@ public final class LauncherActivity extends Activity {
         gear.setId(View.generateViewId()); gear.setText("⚙"); gear.setContentDescription("Fire TV settings");
         gear.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(64));
         gear.setTextColor(PRIMARY_TEXT); gear.setPadding(0,0,0,0); gear.setStateListAnimator(null);
-        gear.setBackground(new GlassTile(0xff303846, false, px(30), px(1)));
-        gear.setOnFocusChangeListener((v, focused) -> gear.setBackground(new GlassTile(0xff303846, focused, px(30), px(focused ? 4 : 1))));
+        final Drawable settingsIdle = settingsSurface(false);
+        final Drawable settingsFocused = settingsSurface(true);
+        gear.setBackground(settingsIdle);
+        gear.setOnFocusChangeListener((v, focused) -> gear.setBackground(focused ? settingsFocused : settingsIdle));
         gear.setOnClickListener(v -> openIntent("Settings", settings));
         FrameLayout.LayoutParams gp = new FrameLayout.LayoutParams(px(96), px(96), Gravity.TOP | Gravity.RIGHT);
         gp.topMargin = px(54); gp.rightMargin = px(96); scene.addView(gear, gp);
@@ -257,8 +272,18 @@ public final class LauncherActivity extends Activity {
             firstFavorite = upper.get(0);
             gear.setNextFocusDownId(firstFavorite.getId());
             for (Button button : upper) button.setNextFocusUpId(gear.getId());
-        } else if (!lower.isEmpty()) firstFavorite = lower.get(0);
-        Log.i(LOG_TAG, "UI tile=" + px(460) + "x" + px(276) + " gap=" + px(40) + " tray=" + px(360));
+        } else {
+            TextView empty = new TextView(this);
+            empty.setText("No apps to show. Check installed apps in Settings.");
+            empty.setTextColor(PRIMARY_TEXT);
+            empty.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(40));
+            empty.setGravity(Gravity.CENTER);
+            FrameLayout.LayoutParams ep = new FrameLayout.LayoutParams(px(1728), px(200));
+            ep.leftMargin = px(96); ep.topMargin = px(700);
+            scene.addView(empty, ep);
+            gear.requestFocus();
+        }
+        Log.i(LOG_TAG, "UI tile=" + px(365) + "x" + px(205) + " gap=" + px(58));
     }
 
     private List<Button> ensureRow(int index) {
@@ -343,7 +368,6 @@ public final class LauncherActivity extends Activity {
         trays.put(strip, tray); rowIndices.put(strip,rowIndex);
         List<Button> buttons = new ArrayList<>();
         for (TileData tile : tiles) {
-            accents.put(tile.key, tile.color);
             BitmapDrawable icon = new BitmapDrawable(getResources(), tile.icon);
             icon.setBounds(0,0,tile.icon.getWidth(),tile.icon.getHeight());
             buttons.add(addShortcut(strip, tile.key, tile.label, icon, tile.color, rowIndex == 0, tile.launch));
@@ -355,6 +379,14 @@ public final class LauncherActivity extends Activity {
         }
         tray.setBackground(traySurface(0xff506e9a));
         return buttons;
+    }
+
+    private Drawable settingsSurface(boolean focused) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(0xff202631);
+        shape.setCornerRadius(px(30));
+        shape.setStroke(px(focused ? 4 : 1), focused ? 0xffffffff : 0xff657080);
+        return shape;
     }
 
     private Drawable traySurface(int color) {
@@ -448,15 +480,19 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        final int session = ++remoteSession;
         try {
             remote = new RemoteServer(getSharedPreferences("paired-phones", MODE_PRIVATE),
                     new RemoteServer.Listener() {
                         public void onCommand(String action) {
-                            runOnUiThread(() -> handleRemote(action));
+                            runOnUiThread(() -> {
+                                if (session == remoteSession && remote != null) handleRemote(action);
+                            });
                         }
 
                         public void onPaired() {
                             runOnUiThread(() -> {
+                                if (session != remoteSession || remote == null) return;
                                 if (remoteDialog != null) remoteDialog.dismiss();
                                 Toast.makeText(LauncherActivity.this, "Phone paired",
                                         Toast.LENGTH_SHORT).show();
@@ -470,6 +506,7 @@ public final class LauncherActivity extends Activity {
 
     @Override
     protected void onStop() {
+        remoteSession++;
         if (remoteDialog != null) remoteDialog.dismiss();
         if (remote != null) {
             remote.close();
@@ -596,34 +633,16 @@ public final class LauncherActivity extends Activity {
 
     private Button addShortcut(LinearLayout row, String key, String label, Drawable icon, int color,
                                boolean featured, Runnable onSelect) {
-        Button button = new Button(this);
+        Button button = new TileButton(this, icon, px(40), px(4));
         button.setId(View.generateViewId());
         button.setAllCaps(false);
         button.setText("");
         button.setContentDescription(label);
         button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(40));
         button.setMaxLines(1);
-        button.setEllipsize(TextUtils.TruncateAt.END);
         button.setGravity(Gravity.CENTER);
         button.setPadding(0, 0, 0, 0);
         button.setStateListAnimator(null);
-        if (icon != null) {
-            final Drawable logo = icon;
-            // Center the predecoded logo independently of the loading-state text.
-            button = new Button(this) {
-                @Override protected void onDraw(Canvas canvas) {
-                    if (getText().length() == 0) {
-                        canvas.save();
-                        canvas.translate((getWidth()-logo.getBounds().width())/2f, (getHeight()-logo.getBounds().height())/2f);
-                        logo.draw(canvas); canvas.restore();
-                    }
-                    super.onDraw(canvas);
-                }
-            };
-            button.setId(View.generateViewId()); button.setText(""); button.setContentDescription(label);
-            button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(40));
-            button.setPadding(0,0,0,0); button.setGravity(Gravity.CENTER); button.setStateListAnimator(null);
-        }
         final Button tileButton = button;
         final String artworkPackage = "favorite:browser".equals(key) ? "com.amazon.cloud9"
                 : key.substring(key.indexOf(':') + 1);
@@ -698,19 +717,6 @@ public final class LauncherActivity extends Activity {
                 .addCategory(Intent.CATEGORY_BROWSABLE);
     }
 
-    private void launchApp(String label, String packageName, AppCatalog.Entry entry) {
-        if (entry != null) {
-            Log.i(LOG_TAG, "Launch route " + packageName + " callerTask=" + getTaskId()
-                    + " mode=" + entry.info.activityInfo.launchMode
-                    + " affinity=" + entry.info.activityInfo.taskAffinity);
-        }
-        Intent intent = entry == null ? null : entry.intent();
-        if (intent != null && ownTaskPackages.contains(packageName)) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        }
-        openIntent(label, intent);
-    }
-
     private void openIntent(String label, Intent intent) {
         if (intent != null) {
             try {
@@ -728,7 +734,4 @@ public final class LauncherActivity extends Activity {
         Toast.makeText(this, "Could not open " + label, Toast.LENGTH_SHORT).show();
     }
 
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
 }

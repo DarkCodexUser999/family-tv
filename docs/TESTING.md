@@ -77,3 +77,26 @@ Added session-only selected columns per row and restoration of the saved app in 
 `sh tests/check-rows.sh` now also tests round-trip row selection, first visits to shorter rows, lookup of a saved app in an unopened row, reordered catalogs, removed/hidden keys, null saved focus and invalid selections. Existing row geometry and rapid-navigation checks pass. The direct launcher build and APK signature verification pass. These are Mac-side logic/build checks; Android focus, scroll position and BACK/launch integration still require the TV.
 
 TV acceptance: choose the fourth Favorite, enter Tools, choose its second tile, then move UP/DOWN and confirm both selections return. Restart while a lower-row tile was last focused and confirm that row opens with the saved tile. Remove/hide the saved tile in a test configuration and verify the Favorites fallback. No new device latency, memory or playback results are claimed.
+
+## UI and reliability review — November 14, 2026
+
+Reviewed the launcher Activity/catalog/artwork classes, row helpers, experimental HOME service, phone companion, local server, shared protocol, manifests, build and restore scripts. The changes address concrete findings; this is not an independent security audit or proof that every bug is fixed.
+
+| Finding | Change |
+|---|---|
+| Empty installed/visible catalog indexed row zero | Show a readable empty state and retain Settings access |
+| Malformed later row could discard already consumed catalog entries | Parse row definitions before consuming the catalog |
+| App update/removal during startup could abort artwork setup | Isolate per-app runtime failures and skip that entry |
+| Tile constructor created and discarded an extra Button | Dedicated TileButton initializes one control; reusable white focus ring improves visibility |
+| Settings focus allocated a new decorative drawable | Reuse two opaque surfaces with a clear outline |
+| Every startup regenerated 1280×480 JPEG backdrops | Generate 640×240 and reuse a private disk cache when sampled icon fingerprint/color match |
+| In-flight worker could refill an evicted cache during destruction | Queue final eviction after artwork work, release the displayed image |
+| IPv4 validation accepted a trailing dot | Strict validation preserving empty octets |
+| Rejected pairing request left pairing permanently busy | Reset pairing state on queue rejection |
+| Slow connections could accumulate outdated directional commands | Drop queued commands older than 750 ms before connecting; show a retry message |
+| Forget/address change could leave queued work targeting the old TV | Clear queued work, invalidate callback versions and cancel pending Home tap on address change |
+| A previous server session could deliver a callback into a later session | Guard launcher callbacks with a session identifier |
+
+Checks: existing row/selection/navigation checks; new `sh tests/check-review.sh` for strict IPv4 cases, stale-command and endpoint-version boundaries, HMAC known vector, proof comparison, and nonce/action/phone-key separation. Both APKs compile and their signatures verify. The protocol wire format, task flags, hidden list, row membership, BACK handlers and restore script are unchanged. No TV or emulator run occurred: focus rendering, lifecycle behavior, pairing UX, PSS and latency require device verification. Cache/UI changes have source/build review only, not Android graphics tests.
+
+Performance scope: this removes duplicate View construction and repeated artwork generation. It does not establish a measured improvement on the stick. Already executing network exchanges cannot be revoked by forgetting a TV; only queued work and stale UI callbacks are invalidated. Shared-network authentication still has the limitations described in ARCHITECTURE.md. Lazy row creation on first access and some focus-path allocations remain.

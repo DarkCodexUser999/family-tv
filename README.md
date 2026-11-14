@@ -20,7 +20,7 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 - Discovers installed apps through `LEANBACK_LAUNCHER`, falling back to `LAUNCHER` activities.
 - Opens installed apps without clearing their data or replacing their accounts.
 - Presents banner-based tiles in configurable rows with D-pad navigation, per-row selection memory and saved last-app focus (latest focus changes await TV verification).
-- Uses pre-rendered artwork, a small backdrop cache and simple scale/translation/alpha effects.
+- Uses pre-rendered artwork, a reusable small backdrop cache, clear focus outlines and simple scale/translation/alpha effects.
 - Supports local tile and backdrop overrides, with generated artwork as a fallback.
 - Hides unwanted tiles through an editable asset list without uninstalling their packages.
 - Supports per-app task flags rather than forcing one launch strategy on every app.

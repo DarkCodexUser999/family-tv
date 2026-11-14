@@ -38,7 +38,7 @@ adb -s "$TV_IP:5555" shell mkdir -p /sdcard/FamilyTV/tiles /sdcard/FamilyTV/back
 adb -s "$TV_IP:5555" push my-tile.png /sdcard/FamilyTV/tiles/com.amazon.firetv.youtube.png
 ```
 
-Use artwork you have permission to use. Tiles center-crop overrides; otherwise they use the app's TV banner, or a colored icon fallback. Tiles are pre-rendered into rounded ARGB_8888 bitmaps on the artwork worker. Backdrops use local overrides or generated gradient/icon artwork, decoded to approximately 640×240 RGB_565 and held in a four-entry cache. Restart the launcher after changing artwork. The generated on-device README and some debug log messages still mention the older 1280×480 artwork size; they are stale.
+Use artwork you have permission to use. Tiles center-crop overrides; otherwise they use the app's TV banner, or a colored icon fallback. Tiles are pre-rendered into rounded ARGB_8888 bitmaps on the artwork worker. Backdrops use local overrides or generated gradient/icon artwork, decoded to approximately 640×240 RGB_565 and held in a four-entry cache. Restart the launcher after changing artwork. Newly created on-device instructions and current backdrop logs use 640×240. An older on-device README is not overwritten. Generated artwork is cached privately and reused when the sampled icon/color fingerprint matches; overrides still take precedence.
 
 ## Display sizing
 

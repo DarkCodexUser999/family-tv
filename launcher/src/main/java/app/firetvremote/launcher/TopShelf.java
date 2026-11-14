@@ -16,7 +16,7 @@ final class TopShelf extends FrameLayout {
     private final LruCache<String, Bitmap> cache = new LruCache<>(4);
     private final Map<String, File> sources = new HashMap<>();
     private final List<String> order = new ArrayList<>();
-    private final ImageView[] layers = new ImageView[1];
+    private final ImageView image;
     private volatile String requested;
     private volatile boolean closed;
     private Future<?> pending;
@@ -26,12 +26,10 @@ final class TopShelf extends FrameLayout {
     TopShelf(Context context) {
         super(context);
         setBackgroundColor(0xff050609);
-        for (int i = 0; i < 1; i++) {
-            layers[i] = new ImageView(context);
-            layers[i].setScaleType(ImageView.ScaleType.CENTER_CROP);
-            addView(layers[i], new LayoutParams(-1, -1));
-            layers[i].setAlpha(0f);
-        }
+        image = new ImageView(context);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        addView(image, new LayoutParams(-1, -1));
+        image.setAlpha(0f);
     }
 
     static int dominant(Bitmap icon) {
@@ -52,29 +50,46 @@ final class TopShelf extends FrameLayout {
             overrides.mkdirs();
             File readme = new File(overrides, "README.txt");
             if (!readme.exists()) try (FileOutputStream out = new FileOutputStream(readme)) {
-                out.write(("Family TV offline backdrops\nUse <package>.jpg or <package>.png, e.g. com.amazon.firetv.youtube.jpg.\nRecommended: 1280 x 480. Pictures are center-cropped. Restart Family TV after changes.\nJPG wins when both exist. Remove the file to restore generated artwork.\n").getBytes("UTF-8"));
+                out.write(("Family TV offline backdrops\nUse <package>.jpg or <package>.png, e.g. com.amazon.firetv.youtube.jpg.\nRecommended: 640 x 240. Pictures are center-cropped. Restart Family TV after changes.\nJPG wins when both exist. Remove the file to restore generated artwork.\n").getBytes("UTF-8"));
             }
         } catch (IOException | SecurityException e) { android.util.Log.w("FamilyTV", "Backdrop directory unavailable", e); }
         File source = new File(overrides, pkg + ".jpg");
         if (!source.isFile()) source = new File(overrides, pkg + ".png");
         if (!source.isFile()) {
-            source = new File(getContext().getCacheDir(), "shelf-" + pkg + ".jpg");
-            Bitmap art = Bitmap.createBitmap(1280, 480, Bitmap.Config.RGB_565);
+            int fingerprint = color;
+            for (int y = 0; y < icon.getHeight(); y += 4) for (int x = 0; x < icon.getWidth(); x += 4) {
+                fingerprint = 31 * fingerprint + icon.getPixel(x, y);
+            }
+            source = new File(getContext().getCacheDir(), "shelf-v2-" + pkg + ".jpg");
+            File stamp = new File(getContext().getCacheDir(), "shelf-v2-" + pkg + ".stamp");
+            boolean reusable = false;
+            try (DataInputStream in = new DataInputStream(new FileInputStream(stamp))) {
+                reusable = source.isFile() && source.length() > 0 && in.readInt() == fingerprint;
+            } catch (IOException ignored) { }
+            if (reusable) { sources.put(pkg, source); order.add(pkg); return; }
+            Bitmap art = Bitmap.createBitmap(640, 240, Bitmap.Config.RGB_565);
             Canvas canvas = new Canvas(art);
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
-            paint.setShader(new LinearGradient(0, 0, 1280, 480,
+            paint.setShader(new LinearGradient(0, 0, 640, 240,
                     new int[]{color, mix(color, 0xff10152b, .48f), 0xff080b14}, null, Shader.TileMode.CLAMP));
             canvas.drawPaint(paint);
             paint.setShader(null); paint.setAlpha(48);
             // A low-resolution copy creates a soft graphic without a runtime blur.
             Bitmap soft = Bitmap.createScaledBitmap(icon, 32, 24, true);
-            canvas.drawBitmap(soft, null, new Rect(680, -40, 1340, 490), paint);
+            canvas.drawBitmap(soft, null, new Rect(340, -20, 670, 245), paint);
             soft.recycle(); paint.setAlpha(255);
-            paint.setShader(new RadialGradient(740, 160, 800,
+            paint.setShader(new RadialGradient(370, 80, 400,
                     new int[]{0x00000000, 0xc9000000}, null, Shader.TileMode.CLAMP));
             canvas.drawPaint(paint);
-            try (FileOutputStream out = new FileOutputStream(source)) { art.compress(Bitmap.CompressFormat.JPEG, 88, out); }
-            catch (IOException e) { android.util.Log.w("FamilyTV", "Backdrop cache", e); }
+            try {
+                try (FileOutputStream out = new FileOutputStream(source)) {
+                    if (!art.compress(Bitmap.CompressFormat.JPEG, 88, out)) throw new IOException("JPEG write failed");
+                }
+                try (DataOutputStream out = new DataOutputStream(new FileOutputStream(stamp))) { out.writeInt(fingerprint); }
+            } catch (IOException e) {
+                stamp.delete();
+                android.util.Log.w("FamilyTV", "Backdrop cache", e);
+            }
             art.recycle();
         }
         sources.put(pkg, source); order.add(pkg);
@@ -110,6 +125,8 @@ final class TopShelf extends FrameLayout {
     private String queued;
     private final Runnable update = () -> showNow(queued);
     void show(String pkg) {
+        if (closed || pkg == null) return;
+        if (pkg.equals(queued) && !suspended && (pkg.equals(displayed) || pending != null && !pending.isDone())) return;
         // Invalidate an old in-flight result immediately, before the settle delay.
         requested = pkg;
         queued = pkg;
@@ -134,7 +151,7 @@ final class TopShelf extends FrameLayout {
             post(() -> {
                 if (closed || suspended || !pkg.equals(requested) || art == null) return;
                 displayed = pkg;
-                layers[0].setImageBitmap(art); layers[0].setAlpha(1f);
+                image.setImageBitmap(art); image.setAlpha(1f);
                 android.util.Log.i("FamilyTV", "Backdrop " + pkg + " 640x240 RGB_565");
             });
             int index = order.indexOf(pkg);
@@ -145,5 +162,12 @@ final class TopShelf extends FrameLayout {
             }
         });
     }
-    void close() { closed = true; suspend(); worker.shutdownNow(); cache.evictAll(); }
+    void close() {
+        closed = true;
+        suspend();
+        image.setImageDrawable(null);
+        // Evict after queued/running artwork work; otherwise an in-flight load can refill a closed cache.
+        worker.execute(cache::evictAll);
+        worker.shutdown();
+    }
 }

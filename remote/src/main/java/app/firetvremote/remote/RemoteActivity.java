@@ -37,6 +37,7 @@ public final class RemoteActivity extends Activity {
     private String phoneId;
     private String key;
     private boolean pairing;
+    private volatile int requestVersion;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -85,13 +86,15 @@ public final class RemoteActivity extends Activity {
         button(volume, "Mute", null);
         button(volume, "Vol +", null);
         TextView note = new TextView(this);
-        note.setText("Use the Samsung remote for sound. Double-tap Home for Amazon Home.");
+        note.setText("Use your TV remote for sound. Double-tap Home for Amazon Home.");
         note.setPadding(0, dp(12), 0, dp(8));
         panel.addView(note);
         button(row(), "Change TV address", this::changeAddress);
         button(row(), "Forget TV", () -> {
             ui.removeCallbacks(singleHome);
             lastHomeTap = -1;
+            requestVersion++;
+            network.getQueue().clear();
             settings.edit().clear().apply();
             host = phoneId = key = null;
             render();
@@ -119,11 +122,13 @@ public final class RemoteActivity extends Activity {
         status.setText("Pairing…");
         String id = Link.randomText(24);
         String derivedKey = Link.phoneKey(code, id);
-        runNetwork(() -> {
+        final int version = requestVersion;
+        if (!runNetwork(() -> {
+            if (version != requestVersion) return;
             try {
                 Link.exchange(address, id, derivedKey, "PAIR");
                 ui.post(() -> {
-                    if (isDestroyed()) return;
+                    if (isDestroyed() || version != requestVersion) return;
                     pairing = false;
                     host = address;
                     phoneId = id;
@@ -134,20 +139,16 @@ public final class RemoteActivity extends Activity {
                 });
             } catch (IOException e) {
                 ui.post(() -> {
+                    if (isDestroyed() || version != requestVersion) return;
                     pairing = false;
                     status.setText("Pairing failed. Check Wi-Fi, the TV address, and the current code.");
                 });
             }
-        });
+        })) pairing = false;
     }
 
     private static boolean validAddress(String address) {
-        String[] parts = address.split("\\.", -1);
-        if (parts.length != 4) return false;
-        for (String part : parts) {
-            if (!part.matches("[0-9]{1,3}") || Integer.parseInt(part) > 255) return false;
-        }
-        return true;
+        return RemoteInput.validAddress(address);
     }
 
     private void changeAddress() {
@@ -161,6 +162,10 @@ public final class RemoteActivity extends Activity {
                         status.setText("Enter a valid IPv4 address.");
                         return;
                     }
+                    ui.removeCallbacks(singleHome);
+                    lastHomeTap = -1;
+                    requestVersion++;
+                    network.getQueue().clear();
                     host = value;
                     settings.edit().putString("host", host).apply();
                     status.setText("TV address updated.");
@@ -188,30 +193,42 @@ public final class RemoteActivity extends Activity {
         String address = host;
         String id = phoneId;
         String commandKey = key;
+        final int version = requestVersion;
+        final long queuedAt = SystemClock.elapsedRealtime();
         runNetwork(() -> {
+            if (version != requestVersion) return;
+            if (!RemoteInput.freshCommand(version, requestVersion, queuedAt, SystemClock.elapsedRealtime())) {
+                ui.post(() -> {
+                    if (!isDestroyed() && version == requestVersion) status.setText("Remote is busy. Press again.");
+                });
+                return;
+            }
             try {
                 Link.exchange(address, id, commandKey, action);
                 ui.post(() -> {
-                    if (commandKey.equals(key)) status.setText("Connected");
+                    if (!isDestroyed() && version == requestVersion && commandKey.equals(key)) status.setText("Connected");
                 });
             } catch (IOException e) {
                 ui.post(() -> {
-                    if (commandKey.equals(key)) status.setText("Open Family TV and check your Wi-Fi.");
+                    if (!isDestroyed() && version == requestVersion && commandKey.equals(key)) status.setText("Open Family TV and check your Wi-Fi.");
                 });
             }
         });
     }
 
-    private void runNetwork(Runnable operation) {
+    private boolean runNetwork(Runnable operation) {
         try {
             network.execute(operation);
+            return true;
         } catch (RejectedExecutionException e) {
             status.setText("Remote is busy. Try again in a moment.");
+            return false;
         }
     }
 
     @Override
     protected void onDestroy() {
+        requestVersion++;
         ui.removeCallbacksAndMessages(null);
         network.shutdownNow();
         super.onDestroy();
