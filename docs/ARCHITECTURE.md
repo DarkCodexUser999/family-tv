@@ -1,29 +1,85 @@
-# Architecture
+# Family TV Remote architecture
 
-```mermaid
-flowchart LR
-  Phone[Android companion] -->|Local TCP + HMAC proofs| Server[RemoteServer]
-  Server --> Activity[LauncherActivity]
-  Catalog[AppCatalog / PackageManager] --> Activity
-  Config[Rows / hidden / task assets] --> Activity
-  Artwork[TopShelf artwork worker + cache] --> Activity
-  Activity -->|Resolved activity intents| Apps[Installed Fire TV apps]
-```
+Status: target architecture for the 14-day build, approved for planning only. The new server and Flutter app are not implemented yet. The existing Java `/remote` companion and TCP/HMAC server remain the working baseline; do not advertise the target API as available.
 
-## TV application
+## Stack and repository
 
-`LauncherActivity` owns row navigation, focus restoration, loading feedback, intent dispatch and the remote server lifecycle. `AppCatalog` queries launchable exported activities with Leanback priority, excluding unavailable or protected entries. Launch intents preserve the selected category and resolved component. Prime Video's standalone app is preferred to its internal player.
+| Path | Responsibility |
+|---|---|
+| `/launcher` | Existing Java/native-Views API 22 launcher; new `lan/` adapter, bounded HTTP/WS server, pairing store, settings toggle and NSD registration |
+| `/mobile` | Planned Flutter app: `lib/core/{api,discovery,storage}`, `lib/features/{pairing,remote,apps,rows,artwork,status}`, `test/`, `integration_test/`, generated Android/iOS hosts |
+| `/protocol` | Planned `openapi.yaml`, `events.schema.json`, `fixtures/`, `SECURITY.md`; language-neutral v1 contract |
+| `/docs` | Architecture, PLAN.md, PROGRESS.md, setup, acceptance evidence and release notes |
+| `/remote`, `/shared` | Legacy Android companion and challenge-response protocol; preserve until migration acceptance; never run both listeners by default |
 
-Package discovery, artwork rasterization and dominant-color extraction run at startup on a worker. `TopShelf` uses one backdrop ImageView, a 150 ms delayed update after focus settles, small RGB_565 textures and an LruCache. Tile artwork is flattened ahead of drawing. TileButton is a single Button drawing pre-rendered artwork and a reusable focus outline, rather than the planned ImageView-only implementation. Focus-path allocations and some nested containers remain; this is not a zero-allocation renderer. Lazy row Views are created on the UI thread when reached.
+Use Flutter stable pinned on Day 1, Dart null safety and one shared UI/API client. Phone targets: Android 8+ (API 26) and iOS 15+; Flutter never runs on the API 22 stick. Start with SDK `ChangeNotifier`/`ValueNotifier`, HTTP and WS clients; add only reviewed packages for Bonjour/NSD, secure credential storage and image selection. Pin versions and commit `pubspec.lock`; track licenses. No Firebase, cloud relay or mobile ADB.
 
-`HomeService` is experimental. Its intended key handling is immediate single HOME, double HOME within 350 ms to stock Home, and a two-second suppression window. It resolves the system Home component rather than hardcoding one. The service did not bind successfully on the tested firmware and is not part of the supported installation flow. There is no separate service process, polling or periodic key scan.
+Keep the launcher Java/API 22, no Compose/native libraries. Evaluate pinned NanoHTTPD + NanoWSD (BSD license review, parser/security and API 22 gates) as a small transport rather than hand-writing HTTP/WS framing. Supply a bounded request runner: library defaults are not an acceptable resource policy. Integrate the pinned source/JAR and notices in both the direct shell build and Gradle; maintain current CI. Reject the dependency if it misses the memory gate. TLS uses the platform provider, not an added native library.
 
-## Companion and protocol
+## Launcher ownership and lifecycle
 
-`RemoteActivity` submits commands through a bounded single-worker queue. `Link` implements challenge-response messages over TCP 48321. Pairing uses a 16-character random code, a two-minute window, a random phone identifier and an HMAC-derived per-phone key. A fresh server nonce is included in each authenticated request; replies carry an authenticated acknowledgement. Keys are stored in app-private preferences; backup is disabled in the manifests.
+A **Remote access** setting is OFF on fresh install. Enabling starts an in-process `LanService` with no `android:process`, root, accessibility, secure-settings grant or input injection. Pairing opens only by a separate TV action. Disabling closes active clients, unregisters NSD and stops the service; **Forget phones** revokes tokens independently. The service can remain reachable when another app is foreground, but reports `canNavigate:false`; background-start restrictions on other OS versions must be tested, not assumed solved by API 22 behavior. No permanent foreground service or wake lock.
 
-The protocol authenticates messages but does **not** encrypt the TCP connection and has not undergone an independent security audit. Pair only on a trusted local network. Do not expose the server or ADB via router port forwarding. No cloud service or account is required for the companion protocol.
+`LauncherBridge` publishes immutable cached catalog/status snapshots, dispatches bounded semantic UI commands and receives explicit lifecycle/focus updates. Network code never queries PackageManager, reads images or blocks on disk from the focus/click path. Edits validate on a worker, atomically persist app-private overrides, then post one small UI update. Packaged asset files stay baseline defaults, with runtime overrides layered on top. Never edit per-app launch flags through the public API or change stock Amazon packages.
 
-The server exists only while the launcher is started and closes when it stops. This intentionally avoids a persistent remote-control background service but limits remote usefulness after opening another app. Phone Back/Home manipulate Family TV only while it is available; they do not inject system-wide events. Volume and mute remain disabled controls.
+Use existing resolved app components and cached launch intents. Permit launching only installed, non-hidden catalog entries. Existing third-party accounts/data stay untouched. Phone controls act on Family TV only: no global Back/Home, volume, power or key injection into streaming apps. App-list, settings and configuration endpoints can still operate while navigation is unavailable. A user can reopen Family TV using its physical remote; v1 does not promise background activity launch from every OS.
 
-Generated backdrops now use a small private disk cache with a sampled icon/color fingerprint; user override paths are unchanged. Artwork generation and cache I/O stay on the startup worker. Shutdown places cache eviction behind outstanding work so it cannot be repopulated after final cleanup. The local remote queue drops commands older than 750 ms before connecting; changing endpoints invalidates queued commands and old UI callbacks. TV callbacks also carry a server-session guard.
+## Discovery, pairing and transport
+
+Advertise `_familytv._tcp.` via Android NsdManager only while enabled, with TXT `v=1` and a random installation ID (no PIN/token/account/MAC). Phones discover on the local network; manual IP/port is the fallback for blocked multicast. Prefer a port assigned at bind time, advertised through NSD; manual setup displays the current port. Bind only the active private Wi-Fi interface, not wildcard/cellular/VPN; close/rebind and re-advertise on network changes. Reject public/loopback manual targets outside explicit developer tests. No port forwarding or WAN listener.
+
+Use HTTP semantics over **HTTPS** and WebSockets over **WSS** so PINs, tokens and the TMDB key are not sent in plaintext. Generate a per-install certificate/key with Android's public keystore APIs; verify self-signed server TLS compatibility on the actual Fire OS build in Day 2. Display the certificate fingerprint with the pairing QR/address on the TV; the phone pins this fingerprint before sending a PIN. Manual setup requires explicit fingerprint confirmation. Discovery alone is not identity. Do not silently fall back to HTTP, accept all certificates globally or disable verification. If API 22 TLS cannot meet the gate, stop and revise the design openly.
+
+Pairing: TV user opens a 120-second window → random six-digit PIN and new session ID → phone verifies displayed certificate fingerprint → `POST /v1/pair` with PIN, session ID and device label → constant-time comparison, rate limit and atomic one-use consumption → random 256-bit token returned once. Limit five attempts per window globally plus per-address throttling; close on success or expiry. Store only token hashes, bounded labels and IDs on TV; phone stores token plus fingerprint in Keychain/Android secure storage. Tokens never enter URLs, NSD, logs or screenshots. Reopening pairing creates a new window; ordinary API calls cannot open it. Max eight paired phones; explicit TV approval to revoke/add beyond the limit.
+
+Normal HTTP uses `Authorization: Bearer <token>`. Native WS upgrade uses the same header, with Origin checks and no query-string token. Reject browser origins by default, disable CORS, validate Host and require auth before allocating an upgraded connection. WSS accepts one client per phone and two total; revoke/disconnect immediately on disable or token deletion. Certificate reset means deliberate re-pairing. Secure storage and API 22 keystore behavior are device gates, not completed claims.
+
+## v1 API contract
+
+All JSON is UTF-8. Responses include `apiVersion:1`; errors use `{error:{code,message},requestId}` without secrets. `/v1/info` alone exposes a minimal discovery identity; `/v1/pair` is usable only during the TV pairing window. Everything else requires auth. Cache catalog/config snapshots and include `revision`; mutations require `If-Match`, returning 409 on stale edits. Return 400 invalid input, 401 bad token, 403 disallowed action, 404 missing resource, 409 conflict/unavailable UI, 413 size limit, 429 rate limit, 503 busy.
+
+| Method/path | Request → result |
+|---|---|
+| `GET /v1/info` | Minimal installation ID, API version and pairing-open flag; no app list or secrets |
+| `POST /v1/pair` | `{sessionId,pin,deviceName}` → `{deviceId,token}`; explicit TV window only |
+| `GET /v1/status` | Cached enabled/foreground/canNavigate/catalogRevision/artwork job status; TMDB configured boolean only |
+| `GET /v1/apps` | Paginated cached `{package,label,hidden,iconRevision}` list; bounded local thumbnail endpoint |
+| `GET /v1/apps/{package}/icon` | Bounded cached thumbnail; authenticated, ETag, never arbitrary filesystem access |
+| `POST /v1/actions` | `{id,action}` with UP/DOWN/LEFT/RIGHT/OK/BACK/HOME/OPTIONS; semantic bridge, foreground only |
+| `POST /v1/apps/{package}/launch` | `{id}` → accepted/current revision; existing launch route, reject hidden/missing apps |
+| `GET/PUT /v1/rows` | Read or replace ≤4 rows, ≤6 unique package IDs each, `If-Match`; unknown IDs rejected; leftovers policy preserved |
+| `GET/PUT /v1/hidden` | Read or replace hidden IDs, `If-Match`; includes Sony LIV baseline and never disables/uninstalls anything |
+| `PUT/DELETE /v1/artwork/{package}/{tile|backdrop}` | One streamed JPEG/PNG upload or delete override → revision; strict installed-package allowlist |
+| `PUT/DELETE /v1/settings/tmdb` | Set `{key}` or remove → `{configured}` only; never echo the secret |
+| `POST /v1/backdrops/refresh` | `{scope:"focused"|"all"}` → 202/job ID; coalesce duplicate jobs, one worker, cancellable |
+| `DELETE /v1/pairings/{deviceId}` | Revoke own device; deleting other phones is TV-only |
+| `GET /v1/events` (WSS upgrade) | Authenticated actions/acks, focus, lifecycle, revisions and job progress |
+
+WS envelope: `{v:1,type,id,payload}`; commands receive `ack` or `error` with the same ID. Input expires after 500 ms; bounded 64-ID dedup cache prevents duplicate OK/launch for ten seconds. Each connection has ≤8 queued input messages; coalesce focus/status output and disconnect clients that do not read. No continuous focus polling or application heartbeat; rely on lifecycle/network events, and bounded reconnect backoff only while the phone is active. Reconnect fetches current snapshots; old queued actions are never replayed. Actions are capped at 20/s/phone and 30/s globally; HTTP 10 requests/s/phone with small burst capacity.
+
+## Artwork, TMDB and configuration
+
+Upload one binary body (not base64), ≤2 MiB, decoded bounds ≤4096×4096 and ≤8 megapixels. Validate magic bytes/type, never filenames supplied by a client; sample down before decode, cap tile at current output size and backdrop at 640×240 RGB_565. Single upload worker, atomic file replacement, 32 MiB total override quota, no arbitrary URLs, EXIF stripping through re-encoding, and no decode on the main thread. Invalid files leave the previous artwork intact. Runtime edits never modify `restore.sh` or packaged hidden/task defaults.
+
+TMDB is optional and OFF until configured; credentials remain app-private and are not synced into Git or returned by API. Prefer the phone to fetch TMDB metadata/images over verified HTTPS and upload processed artwork: this avoids old Fire OS trust-store/TLS problems and extra networking/parsing on the stick. The refresh endpoint emits a job request for a connected foreground phone to fulfill; return `phone_required` when none is available, never claim an offline stick job fetched data. Cache/rate-limit requests, honor provider terms and image attribution, and cancel on phone exit. Choose key ownership/scope and review TMDB terms on Day 12; do not ship a developer's key. No provider account login, media download or scraping.
+
+## Resource and security gates
+
+| Resource | Proposed acceptance ceiling; measure rather than assume |
+|---|---|
+| Disabled | No server sockets, advertisement, server threads or timers; no new focus-path work |
+| Enabled idle | Aim ≤5 MiB incremental PSS, hard review gate >8 MiB versus same-build disabled baseline |
+| Threads/process | Same launcher process; one acceptor, ≤2 HTTP workers, ≤2 WS reader threads, one shared media worker; no thread per unlimited client |
+| Payloads | HTTP JSON 16 KiB, headers 8 KiB, WS frame/message 4 KiB, streaming upload 2 MiB; bounded connection/read/idle timeouts |
+| Queues/cache | ≤8 inputs/client, bounded output/dedup, four small backdrop bitmaps; single media job; no unbounded request or executor queue |
+| UI/performance | No blocking I/O or parsing on focus/click; no repeatable regression beyond measurement noise (initial gate >5% median or >10 ms p95 requires investigation) |
+
+Private LAN is not a trust boundary: pin TLS, compare token hashes safely, bound work before parsing, deny traversal/shell intents, test malformed frames and revocation, and minimize logs. Pairing tokens are authenticated transport credentials, not permission to change system settings. Preserve the existing restore command; extend only when needed to stop the new service/unregister NSD, keeping other apps and accessibility services intact. No new INTERNET/system capabilities are assumed beyond the existing normal network permissions and platform-specific local-network consent.
+
+## Migration and validation
+
+Days 1–7 add a versioned opt-in transport alongside the legacy implementation without altering launch routes. The new setting must not start the old TCP server as an accidental bypass; disable legacy autostart when the new opt-in path is introduced, document old remote incompatibility and retain code until acceptance. Back up/recover runtime configuration; never automatically erase existing phone pairings or app data. Current HomeService stays unused; v1 depends on no accessibility grant.
+
+Use protocol fixtures, JVM/host tests, Flutter unit/widget tests and analyzer before pushes once `/mobile` exists. CI builds launcher/API 22 and Flutter Android, then a macOS iOS simulator build when capacity is available. Mock bridge/phone demos validate logic but cannot establish Fire OS latency, NSD/TLS behavior or memory. No physical TV/iPhone is currently available; track these as pending gates and withhold a stable v1.0 release if essential acceptance cannot run. iOS simulator testing does not prove physical LAN discovery, and App Store/TestFlight distribution requires signing/account decisions beyond a free local simulator build.
+
+Sources: [Flutter platform support](https://docs.flutter.dev/reference/supported-platforms), [Android NSD](https://developer.android.com/develop/connectivity/wifi/use-nsd), [Apple LAN privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd). Pin and verify exact dependency versions before implementation; this document specifies targets, not completed benchmarks or a completed license audit.
