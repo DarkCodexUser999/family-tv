@@ -44,7 +44,7 @@ fi
 "$JAVA_HOME/bin/javac" --release 8 -classpath "$android_jar" -d "$build_dir/classes" \
     "$source_dir/java/app/firetvremote/$module/"*.java \
     "$repo_dir/shared/src/main/java/app/firetvremote/Link.java"
-sh "$build_tools/d8" --lib "$android_jar" --min-api "$min_sdk" --output "$build_dir/dex" \
+bash "$build_tools/d8" --lib "$android_jar" --min-api "$min_sdk" --output "$build_dir/dex" \
     "$build_dir/classes/app/firetvremote/Link.class" \
     "$build_dir/classes/app/firetvremote/$module/"*.class
 (cd "$build_dir/dex" && zip -q "$build_dir/unsigned.apk" classes.dex)
@@ -58,7 +58,7 @@ if [ ! -f "$key" ]; then
 fi
 
 apk="$build_dir/$name.apk"
-sh "$build_tools/apksigner" sign --ks "$key" --ks-key-alias family-tv-debug \
+bash "$build_tools/apksigner" sign --ks "$key" --ks-key-alias family-tv-debug \
     --ks-pass pass:android --key-pass pass:android --out "$apk" "$build_dir/aligned.apk"
-sh "$build_tools/apksigner" verify --verbose --min-sdk-version "$min_sdk" "$apk"
+bash "$build_tools/apksigner" verify --verbose --min-sdk-version "$min_sdk" "$apk"
 printf '\nAPK: %s\n' "$apk"

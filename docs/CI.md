@@ -28,3 +28,7 @@ The workflow has read-only repository permissions, uses commit-pinned official c
 CI is a source/build check, not a device check. It does not verify Android rendering, Fire OS compatibility, HOME/BACK takeover, phone pairing UX, streaming playback, PSS or input latency. Those still need the actual hardware. If Actions is disabled or account limits prevent a run, the code may be pushed without a completed check; inspect the run status rather than assuming success.
 
 References: [checkout](https://github.com/actions/checkout), [setup-java](https://github.com/actions/setup-java), [SDK package manager](https://developer.android.com/tools/sdkmanager).
+
+## SDK tool portability
+
+The D8 and apksigner SDK wrappers declare Bash as their interpreter. The build script invokes them with `bash`, rather than forcing Ubuntu's POSIX `sh` to parse Bash arrays. The first CI run exposed this Mac/Linux difference; the regression checks passed before the APK build encountered it.
