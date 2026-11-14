@@ -19,3 +19,35 @@ ui-backup-before-tvos/
 .env
 .env.*
 !.env.example
+
+# Flutter / Dart generated state (keep pubspec.lock for this application)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/mobile/android/.gradle/
+/mobile/android/local.properties
+/mobile/android/key.properties
+/mobile/android/app/google-services.json
+/mobile/ios/Pods/
+/mobile/ios/.symlinks/
+/mobile/ios/Flutter/ephemeral/
+/mobile/ios/Flutter/Generated.xcconfig
+/mobile/ios/Flutter/flutter_export_environment.sh
+/mobile/ios/Runner/GeneratedPluginRegistrant.*
+/mobile/ios/Runner/GoogleService-Info.plist
+**/xcuserdata/
+**/DerivedData/
+*.ipa
+*.p12
+*.p8
+*.mobileprovision
+
+# Runtime pairing/provider data; only sanitized example fixtures belong in Git
+secrets/
+**/secrets.local.json
+**/tokens.local.json
+**/tmdb.local.json
+**/pairings.local.json
+/protocol/local/
