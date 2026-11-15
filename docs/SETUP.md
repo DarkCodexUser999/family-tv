@@ -137,7 +137,7 @@ Neither command uninstalls streaming apps. The phone companion can be removed th
 
 ## Remote build toolchain — Day 1
 
-GitHub CLI 2.104.0 is installed under the external workspace's `tools/github-cli/`. Flutter stable checkout is pinned at `ab2912035e160d9cad6306df307576da6128ebdb`; bootstrap validation is tracked in PROGRESS.md. The phone package is not scaffolded yet, so Flutter analyzer/tests are N/A today.
+GitHub CLI 2.104.0 is installed under the external workspace's `tools/github-cli/`. Flutter 3.50.0 / Dart 3.14.0 bootstrap passed; stable checkout is pinned at `ab2912035e160d9cad6306df307576da6128ebdb`; analytics are disabled and evidence is tracked in PROGRESS.md. The phone package is not scaffolded yet, so Flutter analyzer/tests are N/A today.
 
 The workspace SSD is ExFAT. Flutter's macOS hard-link startup lock does not work directly on ExFAT. A new 8 GiB-capacity sparse APFS image (`tools/flutter-tools.sparseimage`, grows with use) stores the tool checkout; mount it at `/Volumes/FamilyTVTools` with `hdiutil attach` before using it. Its backing data stays on ExSSD. This does not reformat the drive. Some macOS preferences and temporary files can still use internal storage. Detach the image before ejecting the SSD.
 
