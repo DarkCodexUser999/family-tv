@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://familytv.invalid/protocol/v1/events.schema.json",
+  "title": "Family TV v1 foundational messages (planned, not implemented)",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "type": {
+          "const": "action"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/Action"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "type": {
+          "const": "ack"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/Ack"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "type": {
+          "const": "focus"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/Focus"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "type": {
+          "const": "error"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/Error"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
+    }
+  ]
+,
+  "$defs": {
+    "Info": {"type": "object", "properties": {"apiVersion": {"const": 1}, "installationId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "pairingOpen": {"type": "boolean"}}, "required": ["apiVersion", "installationId", "pairingOpen"], "additionalProperties": false},
+    "PairRequest": {"type": "object", "properties": {"sessionId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "pin": {"type": "string", "pattern": "^[0-9]{6}$"}, "deviceName": {"type": "string", "minLength": 1, "maxLength": 48}}, "required": ["sessionId", "pin", "deviceName"], "additionalProperties": false},
+    "PairResponse": {"type": "object", "properties": {"apiVersion": {"const": 1}, "deviceId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "token": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}, "required": ["apiVersion", "deviceId", "token"], "additionalProperties": false},
+    "Status": {"type": "object", "properties": {"apiVersion": {"const": 1}, "enabled": {"type": "boolean"}, "foreground": {"type": "boolean"}, "canNavigate": {"type": "boolean"}, "catalogRevision": {"type": "integer", "minimum": 0}, "tmdbConfigured": {"type": "boolean"}}, "required": ["apiVersion", "enabled", "foreground", "canNavigate", "catalogRevision", "tmdbConfigured"], "additionalProperties": false},
+    "App": {"type": "object", "properties": {"package": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$", "maxLength": 160}, "label": {"type": "string", "minLength": 1, "maxLength": 80}, "hidden": {"type": "boolean"}, "iconRevision": {"type": "integer", "minimum": 0}}, "required": ["package", "label", "hidden", "iconRevision"], "additionalProperties": false},
+    "Action": {"type": "object", "properties": {"id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "action": {"type": "string", "enum": ["UP", "DOWN", "LEFT", "RIGHT", "OK", "BACK", "HOME", "OPTIONS"]}}, "required": ["id", "action"], "additionalProperties": false},
+    "Launch": {"type": "object", "properties": {"id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}}, "required": ["id"], "additionalProperties": false},
+    "Ack": {"type": "object", "properties": {"apiVersion": {"const": 1}, "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "accepted": {"type": "boolean"}}, "required": ["apiVersion", "id", "accepted"], "additionalProperties": false},
+    "Row": {"type": "object", "properties": {"packages": {"type": "array", "maxItems": 6, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$", "maxLength": 160}}}, "required": ["packages"], "additionalProperties": false},
+    "Rows": {"type": "object", "properties": {"apiVersion": {"const": 1}, "revision": {"type": "integer", "minimum": 0}, "rows": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"$ref": "#/$defs/Row"}}}, "required": ["apiVersion", "revision", "rows"], "additionalProperties": false},
+    "Hidden": {"type": "object", "properties": {"apiVersion": {"const": 1}, "revision": {"type": "integer", "minimum": 0}, "packages": {"type": "array", "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$", "maxLength": 160}}}, "required": ["apiVersion", "revision", "packages"], "additionalProperties": false},
+    "Focus": {"type": "object", "properties": {"package": {"anyOf": [{"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$", "maxLength": 160}, {"type": "null"}]}, "canNavigate": {"type": "boolean"}}, "required": ["package", "canNavigate"], "additionalProperties": false},
+    "Error": {"type": "object", "properties": {"apiVersion": {"const": 1}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "error": {"type": "object", "properties": {"code": {"type": "string", "enum": ["invalid_request", "unauthorized", "forbidden", "not_found", "conflict", "ui_unavailable", "too_large", "rate_limited", "busy"]}, "message": {"type": "string", "maxLength": 160}}, "required": ["code", "message"], "additionalProperties": false}}, "required": ["apiVersion", "requestId", "error"], "additionalProperties": false},
+    "Apps": {"type": "object", "properties": {"apiVersion": {"const": 1}, "revision": {"type": "integer", "minimum": 0}, "apps": {"type": "array", "maxItems": 25, "items": {"$ref": "#/$defs/App"}}, "nextCursor": {"anyOf": [{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, {"type": "null"}]}}, "required": ["apiVersion", "revision", "apps", "nextCursor"], "additionalProperties": false}
+  }
+}

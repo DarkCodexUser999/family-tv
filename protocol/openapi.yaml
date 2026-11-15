@@ -1,0 +1,412 @@
+# JSON syntax is valid YAML; external schemas are local and versioned.
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Family TV Remote foundational API",
+    "version": "0.1.0",
+    "description": "Day 1 contract only. No endpoint implemented. WSS messages are in events.schema.json; uploads/provider/jobs are reserved in ARCHITECTURE.md for later days."
+  },
+  "servers": [
+    {
+      "url": "https://{host}:{port}",
+      "variables": {
+        "host": {
+          "default": "familytv.local"
+        },
+        "port": {
+          "default": "48322"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "phoneToken": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "phoneToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Paired token over pinned TLS only; never a query parameter."
+      }
+    }
+  },
+  "paths": {
+    "/v1/info": {
+      "get": {
+        "operationId": "getInfo",
+        "responses": {
+          "200": {
+            "description": "Info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Info"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/pair": {
+      "post": {
+        "operationId": "pairPhone",
+        "responses": {
+          "200": {
+            "description": "PairResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/PairResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./events.schema.json#/$defs/PairRequest"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "operationId": "getStatus",
+        "responses": {
+          "200": {
+            "description": "Status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Status"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/apps": {
+      "get": {
+        "operationId": "listApps",
+        "responses": {
+          "200": {
+            "description": "Apps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Apps"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 25
+            }
+          }
+        ]
+      }
+    },
+    "/v1/actions": {
+      "post": {
+        "operationId": "dispatchAction",
+        "responses": {
+          "200": {
+            "description": "Ack",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Ack"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./events.schema.json#/$defs/Action"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/apps/{package}/launch": {
+      "parameters": [
+        {
+          "name": "package",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$",
+            "maxLength": 160
+          }
+        }
+      ],
+      "post": {
+        "operationId": "launchApp",
+        "responses": {
+          "200": {
+            "description": "Ack",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Ack"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./events.schema.json#/$defs/Launch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rows": {
+      "get": {
+        "operationId": "getRows",
+        "responses": {
+          "200": {
+            "description": "Rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Rows"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceRows",
+        "responses": {
+          "200": {
+            "description": "Rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Rows"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./events.schema.json#/$defs/Rows"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[0-9]+\"$"
+            }
+          }
+        ],
+        "description": "Body revision must match If-Match; stale edits return 409. Row package IDs must be globally unique and installed; validation beyond schema is server-side."
+      }
+    },
+    "/v1/hidden": {
+      "get": {
+        "operationId": "getHidden",
+        "responses": {
+          "200": {
+            "description": "Hidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Hidden"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceHidden",
+        "responses": {
+          "200": {
+            "description": "Hidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Hidden"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./events.schema.json#/$defs/Hidden"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[0-9]+\"$"
+            }
+          }
+        ],
+        "description": "Body revision must match If-Match; stale edits return 409. Row package IDs must be globally unique and installed; validation beyond schema is server-side."
+      }
+    }
+  }
+}
