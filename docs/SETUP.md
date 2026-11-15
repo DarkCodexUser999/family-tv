@@ -134,3 +134,11 @@ Neither command uninstalls streaming apps. The phone companion can be removed th
 | HOME opens Amazon Home | Expected on the tested firmware |
 | Phone disconnects after launching an app | Current remote server is tied to Family TV's activity lifecycle |
 | APK signature mismatch | Use the original private signing key; do not clear data as a shortcut |
+
+## Remote build toolchain — Day 1
+
+GitHub CLI 2.104.0 is installed under the external workspace's `tools/github-cli/`. Flutter stable checkout is pinned at `ab2912035e160d9cad6306df307576da6128ebdb`; bootstrap validation is tracked in PROGRESS.md. The phone package is not scaffolded yet, so Flutter analyzer/tests are N/A today.
+
+The workspace SSD is ExFAT. Flutter's macOS hard-link startup lock does not work directly on ExFAT. A new 8 GiB-capacity sparse APFS image (`tools/flutter-tools.sparseimage`, grows with use) stores the tool checkout; mount it at `/Volumes/FamilyTVTools` with `hdiutil attach` before using it. Its backing data stays on ExSSD. This does not reformat the drive. Some macOS preferences and temporary files can still use internal storage. Detach the image before ejecting the SSD.
+
+Protocol validators live in the workspace's `tools/protocol-venv/`. Reproduce with Python 3 and `pip install -r protocol/requirements-dev.txt` inside an SSD-hosted virtual environment. Requirements are development tooling only, never shipped in the launcher. GitHub CLI commands use existing credentials only via a process environment, without committing or writing a token to this repository. Daily issue: https://github.com/DarkCodexUser999/family-tv/issues/1.
