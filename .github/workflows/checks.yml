@@ -29,6 +29,11 @@ jobs:
           java-version: '17'
       - name: Run regression and configuration checks
         run: sh tests/check-all.sh
+      - name: Validate remote protocol
+        run: |
+          python3 -m venv "$RUNNER_TEMP/protocol-venv"
+          "$RUNNER_TEMP/protocol-venv/bin/pip" install -r protocol/requirements-dev.txt
+          "$RUNNER_TEMP/protocol-venv/bin/python" tests/check-protocol.py
       - name: Install required Android SDK packages
         shell: bash
         run: |
