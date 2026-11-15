@@ -2,7 +2,7 @@
 
 - Build day: **1 / 14 — complete**, issue #1.
 - Current milestone: Day 1 protocol and toolchain baseline complete.
-- Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. New Flutter `/mobile` and `/protocol` are not created yet.
+- Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder now exists; the new Flutter `/mobile` app is not scaffolded yet.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
 ## Day 1 — complete (2026-11-15)
@@ -20,6 +20,10 @@ Issue: #1, closed by the final progress commit. Four increments only: toolchain,
 ## Next — Day 2 briefing, then explicit go
 
 Build the default-off, bounded launcher transport and prove API 22 TLS/resource feasibility. Read PLAN.md and ARCHITECTURE.md, explain four meaningful increments/risks and end **Say go.** Do not implement before approval. Open a new day-goal issue through gh before committing.
+
+## Live project board
+
+Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; private). History, Day 1 and Days 2–14 are tracked with evidence and separate blocked device gates. See PROJECT_TRACKER.md. During approved sessions, link the day issue, move its card to In progress, append tested commit/CI links, then mark accepted scope Done and make the next day Ready. Include board maintenance in the ordinary daily progress commit; no background update schedule or extra contribution-only commits.
 
 ## Daily execution agreement
 
