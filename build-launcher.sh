@@ -41,12 +41,39 @@ fi
     --version-code "$version_code" --version-name "$version_name" \
     -o "$build_dir/unsigned.apk"
 
-"$JAVA_HOME/bin/javac" --release 8 -classpath "$android_jar" -d "$build_dir/classes" \
-    "$source_dir/java/app/firetvremote/$module/"*.java \
-    "$repo_dir/shared/src/main/java/app/firetvremote/Link.java"
-bash "$build_tools/d8" --lib "$android_jar" --min-api "$min_sdk" --output "$build_dir/dex" \
-    "$build_dir/classes/app/firetvremote/Link.class" \
-    "$build_dir/classes/app/firetvremote/$module/"*.class
+# Compile recursively, including lan/. A fresh generated class directory prevents stale classes.
+classes_dir=$(mktemp -d "$build_dir/classes.XXXXXX")
+trap 'rm -rf "$classes_dir"' EXIT HUP INT TERM
+classpath="$android_jar"
+if [ "$module" = launcher ]; then
+    (cd "$repo_dir/launcher/libs" && shasum -a 256 -c nanohttpd-2.3.1.jar.sha256)
+    classpath="$classpath:$repo_dir/launcher/libs/nanohttpd-2.3.1.jar"
+fi
+find "$source_dir/java" -name '*.java' ! -name '._*' > "$build_dir/sources.list"
+printf '%s\n' "$repo_dir/shared/src/main/java/app/firetvremote/Link.java" >> "$build_dir/sources.list"
+# javac argfiles require quoting when the checkout has spaces.
+python3 - "$build_dir/sources.list" <<'PYARG'
+import sys,json
+from pathlib import Path
+p=Path(sys.argv[1]);p.write_text('\n'.join(json.dumps(line) for line in p.read_text().splitlines()))
+PYARG
+"$JAVA_HOME/bin/javac" --release 8 -classpath "$classpath" -d "$classes_dir" "@$build_dir/sources.list"
+python3 - "$classes_dir" "$build_dir/project-classes.jar" <<'PYJAR'
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
+import sys
+root=Path(sys.argv[1])
+with ZipFile(sys.argv[2], 'w', ZIP_DEFLATED) as jar:
+    for file in sorted(root.rglob('*.class')):
+        if not file.name.startswith('._'):
+            jar.write(file, file.relative_to(root).as_posix())
+PYJAR
+if [ "$module" = launcher ]; then
+    set -- "$build_dir/project-classes.jar" "$repo_dir/launcher/libs/nanohttpd-2.3.1.jar"
+else
+    set -- "$build_dir/project-classes.jar"
+fi
+bash "$build_tools/d8" --lib "$android_jar" --min-api "$min_sdk" --output "$build_dir/dex" "$@"
 (cd "$build_dir/dex" && zip -q "$build_dir/unsigned.apk" classes.dex)
 "$build_tools/zipalign" -f 4 "$build_dir/unsigned.apk" "$build_dir/aligned.apk"
 

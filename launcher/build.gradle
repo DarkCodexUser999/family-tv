@@ -21,3 +21,6 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+// Pinned, checksum-reviewed transport; also consumed by the direct shell build.
+dependencies { implementation files('libs/nanohttpd-2.3.1.jar') }
