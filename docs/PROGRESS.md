@@ -1,7 +1,7 @@
 # Family TV Remote progress
 
-- Build day: **1 / 14 — complete**, issue #1.
-- Current milestone: Day 1 protocol and toolchain baseline complete.
+- Build day: **2 / 14 — code published; physical acceptance blocked**, issue #2.
+- Current milestone: Day 2 implementation approved and published; device acceptance pending.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder now exists; the new Flutter `/mobile` app is not scaffolded yet.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
@@ -17,19 +17,25 @@ Issue: #1, closed by the final progress commit. Four increments only: toolchain,
 - CI for contract tests and both APK builds passed: https://github.com/DarkCodexUser999/family-tv/actions/runs/43674959104. The final documentation commit triggers another run; inspect its actual status.
 - Flutter analyze/test: N/A because no Flutter package exists yet. No runtime server, app UI, emulator or device result is claimed.
 
-## Next — Day 2 briefing, then explicit go
+## Day 2 — approved publication (2026-11-16)
 
-Build the default-off, bounded launcher transport and prove API 22 TLS/resource feasibility. Read PLAN.md and ARCHITECTURE.md, explain four meaningful increments/risks and end **Say go.** Do not implement before approval. Open a new day-goal issue through gh before committing.
+Issue #2: https://github.com/DarkCodexUser999/family-tv/issues/2. See DAY_2_REVIEW.md and protocol/THIRD_PARTY.md. The owner approved the reviewed four-commit publication. The default-off bounded HTTPS transport, settings toggle, lifecycle and host tests are now in source. No TV installation occurred. Legacy TCP autostart is disabled; the old native companion is temporarily incompatible with this candidate. New pairing and commands are not implemented yet.
+
+Applicable local gate: existing regressions, 36 real TLS/bounds/shutdown checks, 27 protocol fixtures, live Info JSON schema validation and both signed APK builds. Flutter analyze/tests remain N/A with no /mobile package. Physical TLS, service lifecycle, PSS and focus/launch latency are blocked on access to the stick. GitHub CI now includes the transport checks; final run evidence is linked from the project card after completion. No passing device evidence is implied.
+
+Published code increments: 25eb2d1 (dependency/build), d9fb455 (transport/host tests), dd3bbbb (service/settings). This progress update is the fourth approved commit. No empty or contribution-only commits.
+
+Next: retain Day 2 issue/device gates until acceptance; propose Day 3 only in the next briefing and wait for explicit go. No new pairing or phone app is claimed.
 
 ## Live project board
 
-Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; private). History, Day 1 and Days 2–14 are tracked with evidence and separate blocked device gates. See PROJECT_TRACKER.md. During approved sessions, link the day issue, move its card to In progress, append tested commit/CI links, then mark accepted scope Done and make the next day Ready. Include board maintenance in the ordinary daily progress commit; no background update schedule or extra contribution-only commits.
+Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; public). History, Day 1 and Days 2–14 are tracked with evidence and separate blocked device gates. See PROJECT_TRACKER.md. During approved sessions, link the day issue, move its card to In progress, append tested commit/CI links, then mark accepted scope Done and make the next day Ready. Include board maintenance in the ordinary daily progress commit; no background update schedule or extra contribution-only commits.
 
 ## Daily execution agreement
 
 - 3–5 meaningful commits maximum; four planned. No filler, empty commits or artificial splitting.
 - Verify email and auth, read current plan/progress, present the day briefing and wait for go.
-- After each increment run applicable tests/builds (plus Flutter analyze/test once mobile exists), commit, pull --rebase and immediately push to main. Resolve failures in visible follow-up work; never force-push published history.
+- After each increment run applicable tests/builds (plus Flutter analyze/test once mobile exists). The latest owner instruction requires approval before committing/pushing; after approval, pull --rebase and push each approved increment to main. Resolve failures in visible follow-up work; never force-push published history.
 - Last daily progress commit closes the issue only when its acceptance passes. Give a five-line report/demo and tomorrow preview.
 - Alpha tag after Week 1; stable v1.0 only after essential physical acceptance.
 

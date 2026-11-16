@@ -76,17 +76,13 @@ adb -s "$TV_IP:5555" shell am start -n app.firetvremote.launcher/.LauncherActivi
 
 The APK installs alongside Amazon Home. Normal installation does not enable the experimental accessibility service or grant secure-settings access. Do not disable stock Home.
 
-## 4. Install and pair the phone
+## 4. Current remote access status
 
-Install `remote/build/local/family-tv-remote-debug.apk` on an Android 8+ phone using its normal APK installer, or use `adb -s PHONE_SERIAL install -r ...` if USB debugging is already configured. Approve APK installation only for your chosen trusted installer.
+Day 2 provides an experimental **Remote access** toggle, OFF by default. With Family TV open, press Menu/Options, enable access and open **Remote connection details** to view the private Wi-Fi HTTPS endpoint and certificate fingerprint. This transport has host TLS tests but still needs Fire OS/AndroidKeyStore and memory/latency validation on the stick. Verify the fingerprint through a trusted local client; never disable certificate checks globally.
 
-1. Open Family TV on the TV.
-2. Press the physical remote's Menu/Options button and choose **Pair a phone**.
-3. Open Family TV Remote on the phone; enter the TV IPv4 address and the displayed 16-character code.
-4. Pair within two minutes. Repeat with a new code for each family phone.
-5. Use **Change TV address** if DHCP changes the TV address. Use **Forget all phones** on the TV to revoke stored pairings.
+Only `/v1/info` is implemented and it reports `pairingOpen:false`. The old native phone APK remains buildable, but its TCP listener no longer autostarts and it cannot control this transport. Do not follow legacy pairing steps expecting them to work on this version. New token pairing and Flutter controls come in later milestones. Existing legacy pairing data is preserved; forgetting legacy phones is an explicit settings action.
 
-Pairing and commands use TCP port 48321. Guest-network/client isolation can prevent phones reaching the TV. Family TV must remain active: the remote is not a system-wide controller. Phone Home uses a one-second double-tap window; this differs from the experimental physical-HOME service.
+Switch **Remote access** OFF to stop the service/listeners. It uses an ephemeral port, so reopening it can change the address. Private IPv4 Wi-Fi is required; no discovery is implemented yet. See [Day 2 review](DAY_2_REVIEW.md) for migration and physical acceptance checks.
 
 ## 5. Configure and verify
 
@@ -132,7 +128,7 @@ Neither command uninstalls streaming apps. The phone companion can be removed th
 | App asks for login | The installed app's own account state; launcher does not supply credentials |
 | BACK stays inside app | App-specific navigation; universal interception is not implemented |
 | HOME opens Amazon Home | Expected on the tested firmware |
-| Phone disconnects after launching an app | Current remote server is tied to Family TV's activity lifecycle |
+| Legacy phone cannot connect | Expected on Day 2: new pairing/control is not implemented and TCP autostart is disabled |
 | APK signature mismatch | Use the original private signing key; do not clear data as a shortcut |
 
 ## Remote build toolchain — Day 1

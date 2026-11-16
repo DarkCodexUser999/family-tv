@@ -17,7 +17,7 @@ Core is a small Java transport and supports supplying a TLS socket factory. It i
 
 Stock defaults are not accepted: a bounded runner permits two clients and no queue; single-request headers are capped at 8 KiB with a 1.5-second socket read timeout and four-second overall header deadline. Duplicate/malformed header names are rejected. Each connection closes after one response. No request-body parsing, temp files, reverse DNS or compression are used. Origin/Host checks apply. Only the minimal `/v1/info` identity exists; every other route returns unauthorized until pairing/auth is implemented. No command handler or file-serving route is registered.
 
-The direct build verifies the artifact SHA-256 and includes it in D8; Gradle uses the same local JAR. Direct compilation is recursive and uses an isolated temporary class directory, avoiding stale classes; generated class archives exclude macOS AppleDouble metadata. Downloaded dependency and license are intentional source dependencies, not APK outputs. Both builds remain local pending push approval.
+The direct build verifies the artifact SHA-256 and includes it in D8; Gradle uses the same local JAR. Direct compilation is recursive and uses an isolated temporary class directory, avoiding stale classes; generated class archives exclude macOS AppleDouble metadata. Downloaded dependency and license are intentional source dependencies, not APK outputs. Source is published after owner approval; private signing keys and generated APKs remain excluded from Git. The complete BSD notice is also packaged as a launcher asset.
 
 ## Remaining gates
 

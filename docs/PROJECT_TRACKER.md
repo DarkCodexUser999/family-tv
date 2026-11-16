@@ -1,12 +1,12 @@
 # family-tv — project tracker
 
-Created 2026-11-15. The live private board tracks these milestones; the repository documents its rules and historical evidence.
-Live private board: https://github.com/users/DarkCodexUser999/projects/1
+Created 2026-11-15. The live public board tracks these milestones; the repository documents its rules and historical evidence.
+Live public board: https://github.com/users/DarkCodexUser999/projects/1
 Repository: https://github.com/DarkCodexUser999/family-tv
 
 ## Board setup
 
-Name: **family-tv**. Preserve current private visibility unless the owner requests otherwise.
+Name: **family-tv**. Public visibility was explicitly approved by the owner.
 Columns: **Backlog**, **Ready**, **In progress**, **Blocked**, **Done**.
 Each card: goal, source/issue links, actual result, validation level, next action.
 “Done” means that card's stated scope is complete; host-tested code never implies physical TV acceptance.
@@ -34,7 +34,7 @@ Commit links use https://github.com/DarkCodexUser999/family-tv/commit/<hash>.
 Issue #1: https://github.com/DarkCodexUser999/family-tv/issues/1 (closed).
 Day 1 CI: https://github.com/DarkCodexUser999/family-tv/actions/runs/43675110742 (success).
 
-## Ready
+## Blocked on device acceptance — Day 2 code published
 
 - **Day 2: tiny opt-in launcher server.** Brief the owner first; wait for go. Same-process bounded transport, disabled by default, TLS feasibility and dependency/license review. No accessibility or global key injection.
 
@@ -63,3 +63,5 @@ Day 1 CI: https://github.com/DarkCodexUser999/family-tv/actions/runs/43675110742
 ## Daily board maintenance
 
 At each approved day's start, add/link its one GitHub issue and move the card Ready → In progress. After each tested commit, append its link and actual evidence to the card. Keep unresolved hardware gates in Blocked. At completion link the final progress commit and CI result, move the day card to Done only for accepted scope, and make the next day Ready. Record changes in docs/PROGRESS.md in the existing end-of-day commit, not extra contribution-only commits. Maintain the 3–5 meaningful daily commit ceiling. No autonomous schedule is implied; updates happen during our approved work sessions.
+
+Day 2 issue #2 is open; the reviewed HTTPS implementation was approved for publication on 2026-11-16. Physical-device acceptance remains pending. Do not mark it Done based solely on host tests.

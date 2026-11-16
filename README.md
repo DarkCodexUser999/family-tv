@@ -13,8 +13,8 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 | TV launcher | Fire TV Stick 2nd Gen; Fire OS 5.2.9.5; Android 5.1 / API 22 |
 | Hardware tested | 32-bit ARM, approximately 1 GB RAM; limited free memory |
 | Phone remote | Android 8.0 / API 26 or newer; broader device coverage remains unverified |
-| Implementation | Java, native Android Views; no Compose, native libraries, or third-party runtime dependencies |
-| Connectivity | Local Wi-Fi, manually entered TV IPv4 address, authenticated pairing |
+| Implementation | Java, native Android Views; no Compose or native libraries; pinned NanoHTTPD transport |
+| Connectivity | Default-off HTTPS info transport; new pairing/control planned |
 | Build | JDK 17, Android SDK 36, Build Tools 35.0.0; direct shell build |
 
 ## What it does
@@ -26,16 +26,20 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 - Supports local tile and backdrop overrides, with generated artwork as a fallback.
 - Hides unwanted tiles through an editable asset list without uninstalling their packages.
 - Supports per-app task flags rather than forcing one launch strategy on every app.
-- Provides a companion remote with D-pad, OK, Back, Options and Home commands while Family TV is active.
+- Includes legacy Android companion source; new Flutter pairing/control is planned and legacy TCP autostart is disabled in the current launcher.
 
 ## What it does not promise
 
 - HOME interception did **not** activate on the tested Fire OS build. The experimental service remains in source but is not enabled by the normal install steps.
 - BACK is controlled partly by the launched app. A single press does not consistently return to Family TV.
-- The phone server stops when the launcher stops; it cannot navigate Netflix, YouTube or other apps system-wide.
+- The optional in-process server exposes basic info only. It cannot navigate Netflix, YouTube or other apps system-wide.
 - Volume/mute buttons are disabled. TV power and IR volume control are not implemented.
 - No bundled streaming apps, subscription access, account bypass, content scraping or app-data migration.
 - No proven frame-time or speed advantage over Amazon Home.
+
+## Day 2 experimental transport
+
+The Day 2 experimental transport replaces legacy TCP autostart with an OFF-by-default remote-access toggle and minimal HTTPS info. It does not yet provide paired phone controls; the old native companion will not control that candidate. See [review and migration notes](docs/DAY_2_REVIEW.md) before installing a locally built APK. Physical Fire OS TLS/memory/latency acceptance is pending.
 
 ## Start here
 

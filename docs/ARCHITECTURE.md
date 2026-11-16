@@ -1,6 +1,6 @@
 # Family TV Remote architecture
 
-Status: target architecture for the 14-day build, approved for planning only. The new server and Flutter app are not implemented yet. The existing Java `/remote` companion and TCP/HMAC server remain the working baseline; do not advertise the target API as available.
+Status: target architecture with the Day 2 default-off HTTPS info transport implemented. Token pairing, NSD, WebSocket commands, edits and the Flutter app remain planned. Legacy `/remote` and `/shared` code is retained, but TCP autostart is disabled: the old companion does not control the current transport. Only `/v1/info` is available; all other routes are unauthorized until implemented. Physical Fire OS acceptance is pending.
 
 ## Stack and repository
 
