@@ -480,28 +480,7 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
-        final int session = ++remoteSession;
-        try {
-            remote = new RemoteServer(getSharedPreferences("paired-phones", MODE_PRIVATE),
-                    new RemoteServer.Listener() {
-                        public void onCommand(String action) {
-                            runOnUiThread(() -> {
-                                if (session == remoteSession && remote != null) handleRemote(action);
-                            });
-                        }
-
-                        public void onPaired() {
-                            runOnUiThread(() -> {
-                                if (session != remoteSession || remote == null) return;
-                                if (remoteDialog != null) remoteDialog.dismiss();
-                                Toast.makeText(LauncherActivity.this, "Phone paired",
-                                        Toast.LENGTH_SHORT).show();
-                            });
-                        }
-                    });
-        } catch (IOException e) {
-            Toast.makeText(this, "Wi-Fi remote could not start", Toast.LENGTH_LONG).show();
-        }
+        app.firetvremote.launcher.lan.LanService.resumeIfEnabled(this);
     }
 
     @Override
@@ -538,12 +517,16 @@ public final class LauncherActivity extends Activity {
 
     private void showOptions() {
         if (remoteDialog != null) return;
-        showRemoteDialog(new AlertDialog.Builder(this).setTitle("Remote options")
-                .setItems(new String[] {"Pair a phone", "Forget all phones"}, (dialog, choice) -> {
-                    if (choice == 0) showPairing();
+        boolean enabled = app.firetvremote.launcher.lan.LanService.enabled(this);
+        showRemoteDialog(new AlertDialog.Builder(this).setTitle("Family TV settings")
+                .setItems(new String[] {"Remote access: " + (enabled ? "ON" : "OFF"),
+                        "Remote connection details", "Forget legacy phones"}, (dialog, choice) -> {
+                    if (choice == 0) app.firetvremote.launcher.lan.LanService.setEnabled(this, !enabled);
+                    else if (choice == 1) showRemoteDialog(new AlertDialog.Builder(this)
+                            .setTitle("Remote access").setMessage(app.firetvremote.launcher.lan.LanService.details)
+                            .setPositiveButton("Close", null));
                     else showRemoteDialog(new AlertDialog.Builder(this)
-                            .setTitle("Forget all paired phones?")
-                            .setNegativeButton("Cancel", null)
+                            .setTitle("Forget legacy paired phones?").setNegativeButton("Cancel", null)
                             .setPositiveButton("Forget", (confirm, which) ->
                                     getSharedPreferences("paired-phones", MODE_PRIVATE).edit().clear().apply()));
                 }).setNegativeButton("Close", null));
