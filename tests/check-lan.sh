@@ -16,6 +16,12 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/HeaderInput.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/BoundedRunner.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/Transport.java" \
-    "$root/tests/LanTransportTest.java"
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairingStore.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairingWindow.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairJson.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AuthFilter.java" \
+    "$root/tests/LanTransportTest.java" "$root/tests/PairingTest.java"
 "$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.LanTransportTest \
     "$build/test.p12" "$build/info.json"
+
+"$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.PairingTest
