@@ -20,10 +20,15 @@ import java.util.concurrent.TimeUnit;
 
 /** Enabled only by an explicit launcher setting; event-driven, no polling or boot receiver. */
 public final class LanService extends Service {
-    private static LanService owner;
+    private static volatile LanService owner;
+    public interface Notice { void show(String message); }
+    public static volatile Notice notice;
     private static final String PREFS = "lan-access";
     private volatile boolean destroyed;
     private Transport server;
+    private volatile Discovery discovery;
+    private PairingStore phones;
+    private PairingWindow pairing;
     private String address;
     private ThreadPoolExecutor control;
     public static volatile String details = "Remote access is OFF.";
@@ -64,7 +69,21 @@ public final class LanService extends Service {
     }
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (!enabled(this)) { stopSelf(); return START_NOT_STICKY; }
-        sync();
+        if(intent!=null && "pair".equals(intent.getAction())) control.execute(() -> {
+            if(pairing==null || server==null || !enabled(this)) {
+                notifyUser("Enable remote access and wait for its address first."); return;
+            }
+            String pin=pairing.open();
+            String message="PIN: "+pin+"\nValid for 2 minutes, one phone only.\n"
+                    +"Confirm the certificate fingerprint in connection details.\n"
+                    +"Pairing session: "+pairing.sessionId();
+            notifyUser(message);
+        });
+        else if(intent!=null && "revoke".equals(intent.getAction())) control.execute(() -> {
+            if(pairing!=null) pairing.close();
+            notifyUser(phones!=null && phones.revokeAll()?"All phone access has been revoked.":"Revocation failed or server is OFF. Retry with remote access ON.");
+        });
+        else sync();
         return START_NOT_STICKY;
     }
     private void sync() {
@@ -81,19 +100,50 @@ public final class LanService extends Service {
                 SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
                 String id = prefs.getString("installation-id", null);
                 if (id == null) { id = UUID.randomUUID().toString(); prefs.edit().putString("installation-id", id).apply(); }
-                Transport nextServer = new Transport(next, identity.sockets, id);
+                if(phones==null) {
+                    SharedPreferences saved=getSharedPreferences("lan-phone-hashes",MODE_PRIVATE);
+                    phones=new PairingStore(new PairingStore.Disk() {
+                        @Override public java.util.Map<String,String> load() {
+                            java.util.Map<String,String> result=new java.util.LinkedHashMap<>();
+                            for(java.util.Map.Entry<String,?> e:saved.getAll().entrySet())
+                                if(e.getValue() instanceof String) result.put(e.getKey(),(String)e.getValue());
+                            return result;
+                        }
+                        @Override public boolean save(java.util.Map<String,String> hashes) {
+                            SharedPreferences.Editor editor=saved.edit().clear();
+                            for(java.util.Map.Entry<String,String> e:hashes.entrySet()) editor.putString(e.getKey(),e.getValue());
+                            return editor.commit(); // This is the LAN worker, never the focus/UI thread.
+                        }
+                    });
+                    pairing=new PairingWindow(phones,android.os.SystemClock::elapsedRealtime,new java.security.SecureRandom());
+                }
+                Transport nextServer = new Transport(next, identity.sockets, id, phones, pairing);
                 nextServer.open();
                 server = nextServer;
                 address = next.getHostAddress();
+                discovery=new Discovery(this,server.getListeningPort(),id);
                 if (destroyed || !enabled(this)) { closeServer(); return; }
                 publish("Address: https://" + address + ":" + server.getListeningPort()
                         + "/v1/info\n\nCertificate SHA-256:\n" + identity.fingerprint
-                        + "\n\nBasic server information only. Pairing and remote controls are not available in this build.");
+                        + "\n\nPair a phone using Family TV settings. Phone controls arrive in a later build. Discovery failure: use this manual address.");
             } catch (Exception error) {
                 closeServer();
                 publish("Secure remote access could not start. Switch OFF and retry.");
                 Log.w("FamilyTVLan", "Secure transport unavailable", error);
             }
+        });
+    }
+    public static String connectionDetails() {
+        LanService live=owner; Discovery d=live==null?null:live.discovery;
+        return details+(d==null?"":"\n\n"+d.status);
+    }
+    public static void action(Context context,String action) {
+        if(enabled(context)) start(context,new Intent(context,LanService.class).setAction(action));
+    }
+    private void notifyUser(String message) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            Notice target=notice;
+            if(owner==this && !destroyed && enabled(this) && target!=null) target.show(message);
         });
     }
     private void publish(String value) {
@@ -111,6 +161,8 @@ public final class LanService extends Service {
         return ServerLimits.privateV4(result) ? result : null;
     }
     private void closeServer() {
+        if(pairing!=null) pairing.close();
+        if(discovery!=null) { discovery.stop(); discovery=null; }
         if (server != null) { server.stop(); server = null; address = null; }
     }
     @Override public void onDestroy() {

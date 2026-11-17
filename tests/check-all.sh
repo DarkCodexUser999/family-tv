@@ -6,6 +6,7 @@ sh "$root/tests/check-rows.sh"
 sh "$root/tests/check-navigation.sh"
 sh "$root/tests/check-review.sh"
 sh "$root/tests/check-lan.sh"
+sh "$root/tests/check-discovery.sh"
 for script in "$root/build-launcher.sh" "$root/restore.sh" "$root/tests/"*.sh; do
     sh -n "$script"
 done

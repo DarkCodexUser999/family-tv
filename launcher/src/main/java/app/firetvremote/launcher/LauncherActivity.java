@@ -84,6 +84,8 @@ public final class LauncherActivity extends Activity {
     private RemoteServer remote;
     private int remoteSession;
     private AlertDialog remoteDialog;
+    private final android.os.Handler pairUi=new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable pairExpiry=() -> { if(remoteDialog!=null) remoteDialog.dismiss(); };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -480,11 +482,13 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        app.firetvremote.launcher.lan.LanService.notice=pairNotice;
         app.firetvremote.launcher.lan.LanService.resumeIfEnabled(this);
     }
 
     @Override
     protected void onStop() {
+        if(app.firetvremote.launcher.lan.LanService.notice==pairNotice) app.firetvremote.launcher.lan.LanService.notice=null;
         remoteSession++;
         if (remoteDialog != null) remoteDialog.dismiss();
         if (remote != null) {
@@ -496,6 +500,7 @@ public final class LauncherActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        pairUi.removeCallbacks(pairExpiry);
         clearPending();
         if (backdrop != null) backdrop.close();
         super.onDestroy();
@@ -515,16 +520,30 @@ public final class LauncherActivity extends Activity {
         return super.onKeyUp(code, event);
     }
 
+    private final app.firetvremote.launcher.lan.LanService.Notice pairNotice=message -> {
+        if(remoteDialog!=null) remoteDialog.dismiss();
+        showRemoteDialog(new AlertDialog.Builder(this).setTitle("Phone access")
+                .setMessage(message).setPositiveButton("Close",null));
+        if(message.startsWith("PIN:")) pairUi.postDelayed(pairExpiry,120000); // One-shot expiry, no polling.
+    };
     private void showOptions() {
         if (remoteDialog != null) return;
         boolean enabled = app.firetvremote.launcher.lan.LanService.enabled(this);
         showRemoteDialog(new AlertDialog.Builder(this).setTitle("Family TV settings")
                 .setItems(new String[] {"Remote access: " + (enabled ? "ON" : "OFF"),
-                        "Remote connection details", "Forget legacy phones"}, (dialog, choice) -> {
+                        "Remote connection details", "Pair a phone", "Revoke all phone access", "Forget legacy phones"}, (dialog, choice) -> {
                     if (choice == 0) app.firetvremote.launcher.lan.LanService.setEnabled(this, !enabled);
                     else if (choice == 1) showRemoteDialog(new AlertDialog.Builder(this)
-                            .setTitle("Remote access").setMessage(app.firetvremote.launcher.lan.LanService.details)
+                            .setTitle("Remote access").setMessage(app.firetvremote.launcher.lan.LanService.connectionDetails())
                             .setPositiveButton("Close", null));
+                    else if(choice==2 || choice==3) {
+                        if(!enabled) showRemoteDialog(new AlertDialog.Builder(this).setTitle("Remote access is OFF")
+                                .setMessage("Enable remote access first.").setPositiveButton("Close",null));
+                        else if(choice==2) app.firetvremote.launcher.lan.LanService.action(this,"pair");
+                        else showRemoteDialog(new AlertDialog.Builder(this).setTitle("Revoke all phones?")
+                                .setNegativeButton("Cancel",null).setPositiveButton("Revoke",(confirm,which) ->
+                                        app.firetvremote.launcher.lan.LanService.action(this,"revoke")));
+                    }
                     else showRemoteDialog(new AlertDialog.Builder(this)
                             .setTitle("Forget legacy paired phones?").setNegativeButton("Cancel", null)
                             .setPositiveButton("Forget", (confirm, which) ->
@@ -536,6 +555,7 @@ public final class LauncherActivity extends Activity {
         AlertDialog dialog = builder.create();
         remoteDialog = dialog;
         dialog.setOnDismissListener(ignored -> {
+            pairUi.removeCallbacks(pairExpiry);
             if (remoteDialog == dialog) remoteDialog = null;
         });
         dialog.show();
