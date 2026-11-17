@@ -7,10 +7,13 @@ import java.net.InetAddress;
 import java.net.Socket;
 import javax.net.ssl.SSLServerSocketFactory;
 
-/** Day 2 deliberately exposes no commands, credentials, files or app catalog. */
+/** Bounded TLS info and window-gated pairing; app/control routes remain unavailable. */
 public final class Transport extends NanoHTTPD {
     private final String host;
-    private final String info;
+    private final String installationId;
+    private PairingStore phones;
+    private PairingWindow pairing;
+    private final ThreadLocal<String> peer = new ThreadLocal<>();
     private final BoundedRunner runner = new BoundedRunner();
     private final boolean testLoopback;
 
@@ -25,10 +28,14 @@ public final class Transport extends NanoHTTPD {
         if (tls == null || !installationId.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException();
         host = address.getHostAddress();
         this.testLoopback = testLoopback;
-        info = "{\"apiVersion\":1,\"installationId\":\"" + installationId + "\",\"pairingOpen\":false}";
+        this.installationId = installationId;
         setAsyncRunner(runner);
         makeSecure(tls, new String[] {"TLSv1.2"});
     }
+    public Transport(InetAddress address, SSLServerSocketFactory tls, String id, PairingStore phones, PairingWindow pairing) {
+        this(address,tls,id); this.phones=phones; this.pairing=pairing;
+    }
+    void pairingForTest(PairingStore phones, PairingWindow pairing) { this.phones=phones; this.pairing=pairing; }
     public void open() throws IOException {
         try { start(ServerLimits.READ_TIMEOUT_MS, true); }
         catch (IOException error) { stop(); throw error; }
@@ -51,11 +58,13 @@ public final class Transport extends NanoHTTPD {
                             throw new IOException("Request bodies are disabled");
                         }
                     }, limited, socket.getOutputStream());
+                    peer.set(socket.getInetAddress().getHostAddress());
                     session.execute();
                 } catch (IOException | RuntimeException ignored) {
                     // Parser failures (e.g. malformed percent escapes) must not escape a worker.
                     // Invalid, timed out and disconnected clients receive no further work.
                 } finally {
+                    peer.remove();
                     close();
                     runner.closed(this);
                 }
@@ -67,15 +76,41 @@ public final class Transport extends NanoHTTPD {
         if (!(host + ":" + getListeningPort()).equals(session.getHeaders().get("host"))) {
             return error(Response.Status.BAD_REQUEST, "invalid_request");
         }
-        // No routes beyond this minimal public identity exist until pairing/auth is implemented.
-        if (!"/v1/info".equals(session.getUri())) return error(Response.Status.UNAUTHORIZED, "unauthorized");
-        if (session.getMethod() != Method.GET || session.getQueryParameterString() != null
-                || session.getHeaders().containsKey("transfer-encoding")
-                || session.getHeaders().containsKey("expect")
-                || session.getHeaders().containsKey("content-length") && !"0".equals(session.getHeaders().get("content-length"))) {
-            return error(Response.Status.BAD_REQUEST, "invalid_request");
+        if (session.getQueryParameterString()!=null || session.getHeaders().containsKey("transfer-encoding")
+                || session.getHeaders().containsKey("expect")) return error(Response.Status.BAD_REQUEST,"invalid_request");
+        if ("/v1/pair".equals(session.getUri()) && pairing!=null) return pair(session);
+        if (!"/v1/info".equals(session.getUri())) {
+            if(AuthFilter.phone(phones,session.getHeaders().get("authorization"))==null)
+                return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            // No WebSocket implementation yet; authenticated upgrades cannot bypass this gate.
+            return error(Response.Status.NOT_FOUND,"not_found");
         }
-        return json(Response.Status.OK, info);
+        if(session.getMethod()!=Method.GET || session.getHeaders().containsKey("content-length")
+                && !"0".equals(session.getHeaders().get("content-length"))) return error(Response.Status.BAD_REQUEST,"invalid_request");
+        String id=pairing==null?null:pairing.sessionId();
+        return json(Response.Status.OK,"{\"apiVersion\":1,\"installationId\":\""+installationId
+                +"\",\"pairingOpen\":"+(id!=null)+(id==null?"":",\"pairingSessionId\":\""+id+"\"")+"}");
+    }
+    private Response pair(IHTTPSession session) {
+        if(session.getMethod()!=Method.POST || !"application/json".equals(session.getHeaders().get("content-type")))
+            return error(Response.Status.BAD_REQUEST,"invalid_request");
+        try {
+            String length=session.getHeaders().get("content-length");
+            if(length==null || !length.matches("[0-9]{1,4}")) throw new IllegalArgumentException();
+            int size=Integer.parseInt(length);
+            if(size<1 || size>1024) throw new IllegalArgumentException();
+            byte[] body=new byte[size]; int offset=0,n;
+            while(offset<size) {
+                n=session.getInputStream().read(body,offset,size-offset);
+                if(n<0) throw new IOException("Short JSON body"); offset+=n;
+            }
+            java.nio.charset.CharsetDecoder utf8=java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT);
+            String result=pairing.pair(peer.get(),PairJson.parse(utf8.decode(java.nio.ByteBuffer.wrap(body)).toString()));
+            if(result.startsWith("{")) return json(Response.Status.OK,result);
+            return error(result.equals("rate_limited")?Response.Status.TOO_MANY_REQUESTS:
+                    result.equals("busy")?Response.Status.SERVICE_UNAVAILABLE:Response.Status.UNAUTHORIZED,result);
+        } catch(IOException | IllegalArgumentException bad) { return error(Response.Status.BAD_REQUEST,"invalid_request"); }
     }
     @Override protected boolean useGzipWhenAccepted(Response response) { return false; }
     private Response error(Response.Status status, String code) {

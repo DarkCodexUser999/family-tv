@@ -106,7 +106,7 @@
   ]
 ,
   "$defs": {
-    "Info": {"type": "object", "properties": {"apiVersion": {"const": 1}, "installationId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "pairingOpen": {"type": "boolean"}}, "required": ["apiVersion", "installationId", "pairingOpen"], "additionalProperties": false},
+    "Info": {"type": "object", "properties": {"apiVersion": {"const": 1}, "installationId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "pairingSessionId": {"type": "string", "pattern": "^[0-9a-f]{32}$"}, "pairingOpen": {"type": "boolean"}}, "required": ["apiVersion", "installationId", "pairingOpen"], "additionalProperties": false},
     "PairRequest": {"type": "object", "properties": {"sessionId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "pin": {"type": "string", "pattern": "^[0-9]{6}$"}, "deviceName": {"type": "string", "minLength": 1, "maxLength": 48}}, "required": ["sessionId", "pin", "deviceName"], "additionalProperties": false},
     "PairResponse": {"type": "object", "properties": {"apiVersion": {"const": 1}, "deviceId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "token": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}, "required": ["apiVersion", "deviceId", "token"], "additionalProperties": false},
     "Status": {"type": "object", "properties": {"apiVersion": {"const": 1}, "enabled": {"type": "boolean"}, "foreground": {"type": "boolean"}, "canNavigate": {"type": "boolean"}, "catalogRevision": {"type": "integer", "minimum": 0}, "tmdbConfigured": {"type": "boolean"}}, "required": ["apiVersion", "enabled", "foreground", "canNavigate", "catalogRevision", "tmdbConfigured"], "additionalProperties": false},

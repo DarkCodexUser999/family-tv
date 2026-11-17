@@ -14,6 +14,7 @@ final class HeaderInput extends InputStream {
     private final byte[] header = new byte[ServerLimits.HEADER_BYTES];
     private int size, position;
     private boolean captured;
+    private int remaining;
 
     HeaderInput(InputStream input) { this(input, System::nanoTime); }
     HeaderInput(InputStream input, Clock clock) {
@@ -33,6 +34,7 @@ final class HeaderInput extends InputStream {
             if (size >= 4 && header[size-4] == '\r' && header[size-3] == '\n'
                     && header[size-2] == '\r' && header[size-1] == '\n') {
                 validateHeaderNames();
+                configureBody();
                 captured = true;
                 return;
             }
@@ -40,6 +42,24 @@ final class HeaderInput extends InputStream {
         throw new IOException("Header too large");
     }
 
+    private void configureBody() throws IOException {
+        String[] lines = new String(header,0,size,java.nio.charset.StandardCharsets.US_ASCII).split("\r\n");
+        if (!lines[0].equals("POST /v1/pair HTTP/1.1")) return;
+        for(int i=1;i<lines.length;i++) if(lines[i].toLowerCase(java.util.Locale.ROOT).startsWith("content-length:")) {
+            String value=lines[i].substring(lines[i].indexOf(':')+1).trim();
+            if(!value.matches("[0-9]{1,4}")) throw new IOException("Invalid body length");
+            remaining=Integer.parseInt(value);
+            if(remaining>1024) throw new IOException("Pairing body too large");
+        }
+    }
+    private int body(byte[] bytes,int offset,int length) throws IOException {
+        if(remaining==0) return -1;
+        if(clock.now()-deadline>=0) throw new SocketTimeoutException("Body deadline");
+        int n=input.read(bytes,offset,Math.min(length,remaining));
+        if(clock.now()-deadline>=0) throw new SocketTimeoutException("Body deadline");
+        if(n<0) throw new IOException("Incomplete body");
+        remaining-=n; return n;
+    }
     private void validateHeaderNames() throws IOException {
         String[] lines = new String(header, 0, size, java.nio.charset.StandardCharsets.US_ASCII).split("\r\n");
         java.util.Set<String> names = new java.util.HashSet<>();
@@ -56,13 +76,14 @@ final class HeaderInput extends InputStream {
 
     @Override public int read() throws IOException {
         capture();
-        return position == size ? -1 : header[position++] & 255;
+        if(position<size) return header[position++] & 255;
+        byte[] one=new byte[1]; return body(one,0,1)<0?-1:one[0]&255;
     }
     @Override public int read(byte[] bytes, int offset, int length) throws IOException {
         if (offset < 0 || length < 0 || length > bytes.length - offset) throw new IndexOutOfBoundsException();
         if (length == 0) return 0;
         capture();
-        if (position == size) return -1;
+        if (position == size) return body(bytes,offset,length);
         int count = Math.min(length, size - position);
         System.arraycopy(header, position, bytes, offset, count);
         position += count;

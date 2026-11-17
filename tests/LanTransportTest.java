@@ -116,6 +116,32 @@ public final class LanTransportTest {
                 try { check(socket.getInputStream().read() == -1, "oversized wire header accepted"); }
                 catch (IOException rejected) { count++; }
             }
+            PairingTest.Disk disk=new PairingTest.Disk();
+            PairingStore phones=new PairingStore(disk);
+            AtomicLong time=new AtomicLong();
+            PairingWindow window=new PairingWindow(phones,time::get,new java.security.SecureRandom());
+            server.pairingForTest(phones,window);
+            String pin=window.open(), session=window.sessionId();
+            check(request("GET","/v1/info","").contains("\"pairingSessionId\":\""+session),"open session discoverable");
+            String body="{\"sessionId\":\""+session+"\",\"pin\":\""+pin+"\",\"deviceName\":\"Test phone\"}";
+            String headers="Content-Type: application/json\r\nContent-Length: "+body.getBytes("UTF-8").length+"\r\n";
+            String response=request("POST","/v1/pair",headers+"\r\n"+body);
+            check(response.startsWith("HTTP/1.1 200"),"real TLS pairing: "+response);
+            String token=PairingTest.token(response);
+            check(request("GET","/v1/status","Authorization: Bearer "+new String(new char[64]).replace('\0','0')+"\r\n").startsWith("HTTP/1.1 401"),"wrong token rejected");
+            check(request("POST","/v1/pair","Content-Type: text/plain\r\nContent-Length: 0\r\n").startsWith("HTTP/1.1 400"),"pair content type rejected");
+            try {
+                String oversized=request("POST","/v1/pair","Content-Type: application/json\r\nContent-Length: 1025\r\n");
+                check(!oversized.startsWith("HTTP/1.1 200"),"oversized pair accepted");
+            } catch(IOException rejected) {count++;}
+
+            check(request("GET","/v1/status","Authorization: Bearer "+token+"\r\n").startsWith("HTTP/1.1 404"),"authenticated gate reached");
+            check(request("GET","/v1/events","Upgrade: websocket\r\n").startsWith("HTTP/1.1 401"),"upgrade requires auth");
+            check(request("GET","/v1/events","Authorization: Bearer "+token+"\r\nUpgrade: websocket\r\n").startsWith("HTTP/1.1 404"),"no premature WS upgrade");
+            check(request("POST","/v1/pair",headers+"\r\n"+body).startsWith("HTTP/1.1 401"),"wire replay rejected");
+            phones.revokeAll();
+            check(request("GET","/v1/status","Authorization: Bearer "+token+"\r\n").startsWith("HTTP/1.1 401"),"wire revoked token rejected");
+            check(!request("GET","/v1/info","").contains("pairingSessionId"),"consumed session hidden");
             await(() -> server.activeClients()==0, "previous clients not released");
             try (Socket first = new Socket("127.0.0.1",server.getListeningPort());
                  Socket second = new Socket("127.0.0.1",server.getListeningPort())) {
