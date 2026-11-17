@@ -1,6 +1,6 @@
 # Family TV Remote architecture
 
-Status: target architecture with the Day 2 default-off HTTPS info transport implemented. Token pairing, NSD, WebSocket commands, edits and the Flutter app remain planned. Legacy `/remote` and `/shared` code is retained, but TCP autostart is disabled: the old companion does not control the current transport. Only `/v1/info` is available; all other routes are unauthorized until implemented. Physical Fire OS acceptance is pending.
+Status: target architecture with Day 3 default-off HTTPS info/PIN pairing, hashed phone credentials, bearer checks, NSD/manual fallback and TV revoke-all implemented in source. WebSocket sessions/commands, edits and Flutter UI remain planned. Legacy /remote and /shared are retained, but TCP autostart is disabled and the old companion cannot control this transport. Authenticated unimplemented routes/upgrades return 404; unauthenticated requests return 401. Physical Fire OS acceptance remains pending. See DAY_3_REVIEW.md for evidence and limits.
 
 ## Stack and repository
 
@@ -23,6 +23,10 @@ A **Remote access** setting is OFF on fresh install. Enabling starts an in-proce
 `LauncherBridge` publishes immutable cached catalog/status snapshots, dispatches bounded semantic UI commands and receives explicit lifecycle/focus updates. Network code never queries PackageManager, reads images or blocks on disk from the focus/click path. Edits validate on a worker, atomically persist app-private overrides, then post one small UI update. Packaged asset files stay baseline defaults, with runtime overrides layered on top. Never edit per-app launch flags through the public API or change stock Amazon packages.
 
 Use existing resolved app components and cached launch intents. Permit launching only installed, non-hidden catalog entries. Existing third-party accounts/data stay untouched. Phone controls act on Family TV only: no global Back/Home, volume, power or key injection into streaming apps. App-list, settings and configuration endpoints can still operate while navigation is unavailable. A user can reopen Family TV using its physical remote; v1 does not promise background activity launch from every OS.
+
+## Day 3 implementation boundary
+
+Current pairing accepts at most 1024 UTF-8 bytes and stores only hashed tokens and random device IDs (device labels are validated but not persisted). TV revocation removes all phones; individual phone management, a pairing QR and WebSocket sessions are later work. /v1/info adds pairingSessionId only while the explicit TV-opened window is active. Tests prove host TLS and fake-platform callback behavior, not Fire OS keystore, multicast cleanup, memory or latency. The following sections describe target behavior where features extend beyond that boundary.
 
 ## Discovery, pairing and transport
 

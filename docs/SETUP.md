@@ -78,11 +78,19 @@ The APK installs alongside Amazon Home. Normal installation does not enable the 
 
 ## 4. Current remote access status
 
-Day 2 provides an experimental **Remote access** toggle, OFF by default. With Family TV open, press Menu/Options, enable access and open **Remote connection details** to view the private Wi-Fi HTTPS endpoint and certificate fingerprint. This transport has host TLS tests but still needs Fire OS/AndroidKeyStore and memory/latency validation on the stick. Verify the fingerprint through a trusted local client; never disable certificate checks globally.
+Day 3 extends Day 2's OFF-by-default server with pairing and discovery. With Family TV open, press Menu/Options, enable **Remote access**, and open **Remote connection details** for the private HTTPS address, certificate fingerprint and discovery status. Compare and explicitly pin the displayed SHA-256 fingerprint in your developer client; never globally disable certificate validation.
 
-Only `/v1/info` is implemented and it reports `pairingOpen:false`. The old native phone APK remains buildable, but its TCP listener no longer autostarts and it cannot control this transport. Do not follow legacy pairing steps expecting them to work on this version. New token pairing and Flutter controls come in later milestones. Existing legacy pairing data is preserved; forgetting legacy phones is an explicit settings action.
+Choose **Pair a phone** on TV. During the two-minute window, GET `/v1/info` includes `pairingSessionId`. POST `/v1/pair` with `Content-Type: application/json` and a correctly calculated Content-Length (1–1024 UTF-8 bytes):
 
-Switch **Remote access** OFF to stop the service/listeners. It uses an ephemeral port, so reopening it can change the address. Private IPv4 Wi-Fi is required; no discovery is implemented yet. See [Day 2 review](DAY_2_REVIEW.md) for migration and physical acceptance checks.
+```json
+{"sessionId":"COPY_FROM_INFO","pin":"COPY_TV_PIN","deviceName":"My phone"}
+```
+
+The example contains placeholders, not working credentials. Pairing returns a deviceId and one-time plaintext token; phone software must keep it in secure storage. Protected requests use `Authorization: Bearer <token>` over pinned TLS. Tokens must never enter URLs, Git, screenshots or logs. The TV stores only hashes. Five failed guesses close the window; reopening does not reset address throttling. At most eight phones can be paired. Use **Revoke all phone access** and confirm to remove tokens; re-pair the phones you want to keep. No per-phone management UI exists yet.
+
+Discovery uses `_familytv._tcp.` and the actual ephemeral HTTPS port, with no advertised secrets. If unavailable, manually enter the address shown on TV. Switching access OFF stops the service/listener and requests discovery removal. Physical Fire OS discovery/TLS/shutdown acceptance is pending.
+
+There is no Flutter app, working WebSocket connection, remote pad or app/control endpoint yet. The old native APK remains buildable but cannot control this transport; its TCP autostart stays disabled and legacy pairing data remains untouched. See [Day 3 implementation review](DAY_3_REVIEW.md) for tests and limits. Source is published; physical-device acceptance remains pending.
 
 ## 5. Configure and verify
 
@@ -128,7 +136,7 @@ Neither command uninstalls streaming apps. The phone companion can be removed th
 | App asks for login | The installed app's own account state; launcher does not supply credentials |
 | BACK stays inside app | App-specific navigation; universal interception is not implemented |
 | HOME opens Amazon Home | Expected on the tested firmware |
-| Legacy phone cannot connect | Expected on Day 2: new pairing/control is not implemented and TCP autostart is disabled |
+| Legacy phone cannot connect | Expected: legacy TCP autostart is disabled; new Flutter controls are not implemented |
 | APK signature mismatch | Use the original private signing key; do not clear data as a shortcut |
 
 ## Remote build toolchain — Day 1

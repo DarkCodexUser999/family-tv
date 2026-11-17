@@ -1,7 +1,7 @@
 # Family TV Remote progress
 
-- Build day: **2 / 14 — code published; physical acceptance blocked**, issue #2.
-- Current milestone: Day 2 implementation approved and published; device acceptance pending.
+- Build day: **3 / 14 — code published; physical acceptance blocked**, issue #3.
+- Current milestone: Day 3 pairing/discovery approved and published. Day 2 and Day 3 physical acceptance remain pending.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder now exists; the new Flutter `/mobile` app is not scaffolded yet.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
@@ -27,6 +27,18 @@ Published code increments: 25eb2d1 (dependency/build), d9fb455 (transport/host t
 
 Next: retain Day 2 issue/device gates until acceptance; propose Day 3 only in the next briefing and wait for explicit go. No new pairing or phone app is claimed.
 
+## Day 3 — approved publication (2026-11-17)
+
+Issue #3: https://github.com/DarkCodexUser999/family-tv/issues/3. Owner approved publication after reviewing the local test results. See DAY_3_REVIEW.md.
+
+- TV-opened 120-second one-use six-digit PIN, five guesses/window, address/global throttling surviving window reopen, maximum eight phones. Raw tokens are returned once over TLS; only SHA-256 hashes persist privately. No phone names or secrets are advertised.
+- Strict <=1024-byte pairing JSON, duplicate keys rejected, shared monotonic request deadline, bearer gate for all non-public requests. No WebSocket session or control endpoint is implemented yet; upgrades are rejected after authentication.
+- Event-based NSD registration/cleanup, manual address fallback, explicit revoke-all confirmation, PIN dialog one-shot dismissal. No polling, new process, runtime dependency or accessibility integration.
+- Local checks passed: 47 TLS/transport checks, 30 pairing/auth/persistence checks, 13 discovery lifecycle checks with host Android fakes, all existing regressions, 27 protocol fixtures, both signed APK builds. Flutter checks N/A: /mobile not created. Each exact staged snapshot passed checks and both builds before commit/push. Final GitHub CI evidence is recorded on the project card after the last push.
+- Fire OS keystore, NSD on home Wi-Fi/two phones, TV UI, shutdown/disabled state, same-build PSS and input/launch timings remain unverified. No device installation occurred; neither day issue may be closed on host evidence alone.
+- Published code: f13f5b6 (pairing core), 0295e50 (bounded TLS/auth), 156fbb2 (discovery/TV settings). This documentation update is the fourth approved increment. Issue #3 remains open for physical acceptance.
+- Next: verify final CI and board evidence; Day 4 Flutter skeleton needs its own briefing/go.
+
 ## Live project board
 
 Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; public). History, Day 1 and Days 2–14 are tracked with evidence and separate blocked device gates. See PROJECT_TRACKER.md. During approved sessions, link the day issue, move its card to In progress, append tested commit/CI links, then mark accepted scope Done and make the next day Ready. Include board maintenance in the ordinary daily progress commit; no background update schedule or extra contribution-only commits.
@@ -43,5 +55,5 @@ Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; public).
 
 - Fire TV remains in another city. API 22 TLS/NSD, pairing, enabled/disabled PSS and focus/launch latency are pending.
 - No physical iPhone/signing setup; simulator success cannot establish LAN parity. No emulator configured.
-- NanoHTTPD/NanoWSD version, security/resource caps and license provenance still require implementation-time review.
+- NanoHTTPD core was pinned/reviewed on Day 2; WSS implementation/dependency review remains a later milestone. No independent security audit is claimed.
 - Flutter and tool caches stay on SSD where possible; macOS preferences/temporary files can still use internal storage. No secrets or signing material are in the repo.

@@ -1,6 +1,6 @@
 # v1 security and acceptance rules
 
-Contract-only on Day 1. No endpoint, authentication filter or token issuer exists yet. A passing fixture does not prove transport enforcement.
+Day 3 implements bounded TLS pairing and bearer validation; WSS/control routes remain unimplemented. See docs/DAY_3_REVIEW.md for executable evidence and physical gates. A passing fixture alone does not prove transport enforcement.
 
 - Server OFF by default; enabling it must not leave the legacy TCP listener active as a bypass.
 - Same process as launcher, private Wi-Fi interface only, no root/accessibility/system permissions or global key injection.
@@ -19,3 +19,5 @@ Contract-only on Day 1. No endpoint, authentication filter or token issuer exist
 ## Acceptance before any server release
 
 Exercise disabled state, wrong PIN, PIN expiry/reuse, revoked tokens, malformed frames, oversized bodies, traversal, slow clients, network change and foreground handoff. Run on API 22 and measure same-build disabled vs enabled PSS and input/launch timings. Targets are ceilings, not current measurements. Keep v1 prerelease if physical-device acceptance is unavailable.
+
+Pairing specifically caps JSON at 1024 bytes (below the general 16 KiB ceiling), with exactly three string fields and a Content-Length. Credentials are limited to eight phones; revocation UI currently removes all phones. Discovery exposes only api=1 and an instance name/port; never treat discovery as a trusted certificate source.
