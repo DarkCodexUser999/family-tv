@@ -34,15 +34,16 @@ Commit links use https://github.com/DarkCodexUser999/family-tv/commit/<hash>.
 Issue #1: https://github.com/DarkCodexUser999/family-tv/issues/1 (closed).
 Day 1 CI: https://github.com/DarkCodexUser999/family-tv/actions/runs/43675110742 (success).
 
-## Blocked on device acceptance — Days 2 and 3 code published
+## Blocked on device acceptance — Days 2–4 code published
 
 - **Day 2: tiny opt-in launcher server.** Published after approval; host checks/CI passed. Physical TLS/PSS/latency gates remain open, issue #2.
 
 - Day 3: pairing/discovery approved and published on 2026-11-17 (f13f5b6 (pairing core), 0295e50 (bounded TLS/auth), 156fbb2 (discovery/TV settings)). Physical acceptance pending, issue #3. See docs/DAY_3_REVIEW.md; final CI links are on the live project card.
 
+- Day 4: Flutter pairing source approved and published; local analyzer/tests/three APK builds passed. Physical validation pending. Issue #4 and docs/DAY_4_REVIEW.md.
+
 ## Backlog — planned, not completed
 
-- Day 4: Flutter Android/iOS skeleton and pairing UI.
 - Day 5: foreground-aware remote pad and events.
 - Day 6: installed-app phone grid and launch requests.
 - Day 7: Android integration and honest alpha checkpoint.

@@ -1,8 +1,8 @@
 # Family TV Remote progress
 
-- Build day: **3 / 14 — code published; physical acceptance blocked**, issue #3.
-- Current milestone: Day 3 pairing/discovery approved and published. Day 2 and Day 3 physical acceptance remain pending.
-- Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder now exists; the new Flutter `/mobile` app is not scaffolded yet.
+- Build day: **4 / 14 — code published; physical acceptance blocked**, issue #4.
+- Current milestone: Day 4 Flutter pairing source approved and published; device acceptance pending. Days 2 and 3 physical gates remain open.
+- Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
 ## Day 1 — complete (2026-11-15)
@@ -39,6 +39,17 @@ Issue #3: https://github.com/DarkCodexUser999/family-tv/issues/3. Owner approved
 - Published code: f13f5b6 (pairing core), 0295e50 (bounded TLS/auth), 156fbb2 (discovery/TV settings). This documentation update is the fourth approved increment. Issue #3 remains open for physical acceptance.
 - Next: verify final CI and board evidence; Day 4 Flutter skeleton needs its own briefing/go.
 
+## Day 4 — approved publication (2026-11-18)
+
+Issue #4: https://github.com/DarkCodexUser999/family-tv/issues/4. Owner approved the reviewed implementation and four-commit publication. See DAY_4_REVIEW.md and MOBILE_DEPENDENCIES.md.
+
+- Shared Flutter Android/iOS source, discovery/manual endpoint, exact pinned TLS, PIN entry, secure saved pairing, local forget and recovery UI. No pad or app controls; launcher unchanged.
+- Analyzer clean and 14 mobile tests passed, including real HTTPS pin/rejection checks and a rendered phone-size/200%-text layout test. iOS configuration syntax checked; no Xcode/native iOS build.
+- Existing Java/protocol checks and both legacy APK builds passed. New Flutter debug APK built and v2 signature verified (API 26+, three Android ABIs). No phone/TV/emulator install.
+- Dependencies/outputs/caches stay on SSD. ExFAT metadata and NDK links handled with an SSD-backed APFS tool/build workspace; original filesystem not reformatted. Gradle/NDK downloads verified against upstream checksums.
+- Published code: 9fc348c (1), ff302fd (2), f522a20 (3). This evidence/test update is the fourth increment. Each exact staged snapshot passed applicable Flutter/Java/protocol tests, analyzer and all three APK builds before commit/push; final CI links are recorded on the project card.
+- Next: retain device acceptance gates and keep issue #4 open. Then Day 5 needs a new briefing/go; physical pairing and storage/discovery gates remain open.
+
 ## Live project board
 
 Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; public). History, Day 1 and Days 2–14 are tracked with evidence and separate blocked device gates. See PROJECT_TRACKER.md. During approved sessions, link the day issue, move its card to In progress, append tested commit/CI links, then mark accepted scope Done and make the next day Ready. Include board maintenance in the ordinary daily progress commit; no background update schedule or extra contribution-only commits.
@@ -49,6 +60,7 @@ Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; public).
 - Verify email and auth, read current plan/progress, present the day briefing and wait for go.
 - After each increment run applicable tests/builds (plus Flutter analyze/test once mobile exists). The latest owner instruction requires approval before committing/pushing; after approval, pull --rebase and push each approved increment to main. Resolve failures in visible follow-up work; never force-push published history.
 - Last daily progress commit closes the issue only when its acceptance passes. Give a five-line report/demo and tomorrow preview.
+- At session end stop only task-started processes, leave SSD folders, detach the SSD-backed APFS image and safely eject ExSSD; never force ejection.
 - Alpha tag after Week 1; stable v1.0 only after essential physical acceptance.
 
 ## Open gates

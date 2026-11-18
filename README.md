@@ -26,7 +26,7 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 - Supports local tile and backdrop overrides, with generated artwork as a fallback.
 - Hides unwanted tiles through an editable asset list without uninstalling their packages.
 - Supports per-app task flags rather than forcing one launch strategy on every app.
-- Includes legacy Android companion source; new Flutter pairing/control is planned and legacy TCP autostart is disabled in the current launcher.
+- Includes legacy Android companion source and a Day 4 Flutter pairing preview (Android/iOS source); controls remain planned and legacy TCP autostart is disabled in the current launcher.
 
 ## What it does not promise
 
@@ -77,3 +77,7 @@ The project intentionally keeps SDKs, signing keys, APKs, device logs and local 
 The project brief used FireFrame, dumbtv, firedtvlauncher, FTVLaunchX, tvOS-Launcher, AerioTV-Android and Debrify as launcher/design research references. See [reference notes](docs/REFERENCES.md). These are independent projects; this repository does not claim affiliation with Apple, Amazon or streaming providers. App logos/banners are loaded from installed packages at runtime and belong to their respective owners.
 
 **License:** no redistribution license has been selected for this repository yet. Public source visibility is not an open-source license. Do not assume referenced projects share one license or that their code can be copied here without review.
+
+## Phone app pairing preview
+
+Day 4 adds a shared Flutter pairing app under mobile/ (published pairing preview). It discovers or manually addresses Family TV, verifies its certificate fingerprint, enters the TV PIN and saves credentials securely. It does not provide remote controls yet. See [mobile setup](mobile/README.md), [review and tests](docs/DAY_4_REVIEW.md), and [dependency review](docs/MOBILE_DEPENDENCIES.md). Physical phone/TV and iOS build acceptance remain pending.

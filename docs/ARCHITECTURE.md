@@ -1,13 +1,13 @@
 # Family TV Remote architecture
 
-Status: target architecture with Day 3 default-off HTTPS info/PIN pairing, hashed phone credentials, bearer checks, NSD/manual fallback and TV revoke-all implemented in source. WebSocket sessions/commands, edits and Flutter UI remain planned. Legacy /remote and /shared are retained, but TCP autostart is disabled and the old companion cannot control this transport. Authenticated unimplemented routes/upgrades return 404; unauthenticated requests return 401. Physical Fire OS acceptance remains pending. See DAY_3_REVIEW.md for evidence and limits.
+Status: target architecture with Day 3 default-off HTTPS info/PIN pairing, hashed phone credentials, bearer checks, NSD/manual fallback and TV revoke-all implemented in source. Day 4 Flutter pairing UI/client source is published and Android-build tested; iOS build/device acceptance remains pending; WebSocket sessions/commands and edits remain planned. Legacy /remote and /shared are retained, but TCP autostart is disabled and the old companion cannot control this transport. Authenticated unimplemented routes/upgrades return 404; unauthenticated requests return 401. Physical Fire OS acceptance remains pending. See DAY_3_REVIEW.md for evidence and limits.
 
 ## Stack and repository
 
 | Path | Responsibility |
 |---|---|
 | `/launcher` | Existing Java/native-Views API 22 launcher; new `lan/` adapter, bounded HTTP/WS server, pairing store, settings toggle and NSD registration |
-| `/mobile` | Planned Flutter app: `lib/core/{api,discovery,storage}`, `lib/features/{pairing,remote,apps,rows,artwork,status}`, `test/`, `integration_test/`, generated Android/iOS hosts |
+| `/mobile` | Published Flutter pairing app source; later features planned: `lib/core/{api,discovery,storage}`, `lib/features/{pairing,remote,apps,rows,artwork,status}`, `test/`, `integration_test/`, generated Android/iOS hosts |
 | `/protocol` | Planned `openapi.yaml`, `events.schema.json`, `fixtures/`, `SECURITY.md`; language-neutral v1 contract |
 | `/docs` | Architecture, PLAN.md, PROGRESS.md, setup, acceptance evidence and release notes |
 | `/remote`, `/shared` | Legacy Android companion and challenge-response protocol; preserve until migration acceptance; never run both listeners by default |
