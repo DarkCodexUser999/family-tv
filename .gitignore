@@ -51,3 +51,7 @@ secrets/
 **/tmdb.local.json
 **/pairings.local.json
 /protocol/local/
+
+# Local JVM diagnostics and Flutter native-assets intermediates
+*.hprof
+**/.cxx/
