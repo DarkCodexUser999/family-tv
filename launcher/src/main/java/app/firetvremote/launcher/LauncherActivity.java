@@ -4,15 +4,12 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -39,8 +36,6 @@ import java.util.Set;
 public final class LauncherActivity extends Activity {
     private static final int PRIMARY_TEXT = 0xfff4f7ff;
     private static final String LOG_TAG = "FamilyTV";
-    private static final String PRIME_APP = "com.amazon.firebat";
-    private static final String PRIME_PLAYER = "com.amazon.avod";
     private final Map<String, Button> focusTargets = new LinkedHashMap<>();
     private Button firstFavorite;
     private TopShelf backdrop;
@@ -109,7 +104,7 @@ public final class LauncherActivity extends Activity {
         backdrop.worker.execute(() -> {
             Map<String, AppCatalog.Entry> catalog = AppCatalog.list(this);
             catalog.keySet().removeAll(hiddenPackages);
-            if (catalog.containsKey(PRIME_APP)) catalog.remove(PRIME_PLAYER);
+            LaunchRoute.preferPrimeApp(catalog.keySet());
             try {
                 java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
                 try (java.io.InputStream in = getAssets().open("rows.json")) {
@@ -219,12 +214,11 @@ public final class LauncherActivity extends Activity {
         }
         tile.icon.recycle(); tile.icon=flat;
         // Resolve the route and flags once, away from the key/click path.
-        final Intent launch = entry.intent();
-        if (ownTaskPackages.contains(tile.pkg)) {
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        }
+        LaunchRoute route = LaunchRoute.build(tile.pkg, entry.info.activityInfo.name,
+                entry.category, ownTaskPackages);
+        if (route == null) return null;
+        final Intent launch = route.intent();
         tile.launch = () -> openIntent(tile.label, launch);
-        if("com.amazon.cloud9".equals(tile.pkg)) { Intent web=browserLaunchIntent(); tile.launch=()->openIntent("Internet",web); }
         Log.i(LOG_TAG,"RowTile "+tile.pkg);
 
         return tile;
@@ -717,24 +711,9 @@ public final class LauncherActivity extends Activity {
         return button;
     }
 
-    private Intent browserLaunchIntent() {
-        PackageManager packages = getPackageManager();
-        AppCatalog.Entry silk = AppCatalog.find(this, "com.amazon.cloud9");
-        if (silk != null) return silk.intent();
-        Intent web = browserIntent();
-        ResolveInfo result = packages.resolveActivity(web, PackageManager.MATCH_DEFAULT_ONLY);
-        if (result != null && !"android".equals(result.activityInfo.packageName)) {
-            web.setComponent(new android.content.ComponentName(result.activityInfo.packageName,
-                    result.activityInfo.name));
-            return web;
-        }
-        return null;
-    }
 
-    private Intent browserIntent() {
-        return new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/"))
-                .addCategory(Intent.CATEGORY_BROWSABLE);
-    }
+
+
 
     private void openIntent(String label, Intent intent) {
         if (intent != null) {

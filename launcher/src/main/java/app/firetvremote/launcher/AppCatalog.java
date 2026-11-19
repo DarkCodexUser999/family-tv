@@ -1,6 +1,5 @@
 package app.firetvremote.launcher;
 
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -31,12 +30,7 @@ final class AppCatalog {
             this.category = category;
         }
 
-        Intent intent() {
-            ActivityInfo activity = info.activityInfo;
-            return new Intent(Intent.ACTION_MAIN)
-                    .addCategory(category)
-                    .setComponent(new ComponentName(activity.packageName, activity.name));
-        }
+
     }
 
     static Set<String> hiddenPackages(Context context) {
@@ -57,16 +51,7 @@ final class AppCatalog {
         return hidden;
     }
 
-    static Entry find(Context context, String packageName) {
-        PackageManager packages = context.getPackageManager();
-        for (String category : CATEGORIES) {
-            Intent query = new Intent(Intent.ACTION_MAIN).addCategory(category).setPackage(packageName);
-            for (ResolveInfo result : packages.queryIntentActivities(query, 0)) {
-                if (launchable(context, result)) return new Entry(result, category);
-            }
-        }
-        return null;
-    }
+
 
     static Map<String, Entry> list(Context context) {
         PackageManager packages = context.getPackageManager();
