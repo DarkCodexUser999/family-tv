@@ -23,21 +23,25 @@ class PinnedTvApi implements TvApi {
       DateTime.now().isAfter(cert.startValidity) &&
       DateTime.now().isBefore(cert.endValidity);
 
-  Future<Map<String, dynamic>> _request(
-    TvEndpoint target,
-    String certificate,
-    String path, {
-    Map<String, String>? body,
-  }) async {
+  static HttpClient clientFor(TvEndpoint target, String certificate) {
     final expected = fingerprint(certificate);
     // Empty roots ensure every certificate must pass our exact TV pin, even a public CA certificate.
-    final client = HttpClient(context: SecurityContext(withTrustedRoots: false))
+    return HttpClient(context: SecurityContext(withTrustedRoots: false))
       ..connectionTimeout = const Duration(seconds: 4)
       ..findProxy = ((_) => 'DIRECT')
       ..badCertificateCallback = (cert, host, port) =>
           host == target.address &&
           port == target.port &&
           matchesCertificate(cert, expected);
+  }
+
+  Future<Map<String, dynamic>> _request(
+    TvEndpoint target,
+    String certificate,
+    String path, {
+    Map<String, String>? body,
+  }) async {
+    final client = clientFor(target, certificate);
     try {
       return await (() async {
         final request = await client.openUrl(
