@@ -4,7 +4,7 @@
   "info": {
     "title": "Family TV Remote foundational API",
     "version": "0.1.0",
-    "description": "Foundational contract: Day 3 implements info and pairing only; other routes remain planned. WSS messages are in events.schema.json; uploads/provider/jobs are reserved in ARCHITECTURE.md for later days."
+    "description": "Foundational contract: Day 5 local candidate implements info, pairing, minimal status and WSS state/actions. Other HTTP routes remain planned. WSS messages and required expiry/epoch fields are in events.schema.json; uploads/provider/jobs remain reserved in ARCHITECTURE.md."
   },
   "servers": [
     {

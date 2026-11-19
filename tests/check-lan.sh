@@ -12,6 +12,7 @@ if [ ! -s "$build/test.p12" ]; then
         -dname CN=localhost -ext SAN=ip:127.0.0.1 -validity 30 >/dev/null 2>&1
 fi
 "$JAVA_HOME/bin/javac" --release 8 -cp "$lib" -d "$build/classes" \
+    "$root/launcher/src/main/java/fi/iki/elonen/NanoWSD.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ServerLimits.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/HeaderInput.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/BoundedRunner.java" \
@@ -20,8 +21,17 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairingWindow.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairJson.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AuthFilter.java" \
-    "$root/tests/LanTransportTest.java" "$root/tests/PairingTest.java"
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/LauncherBridge.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ActionMessage.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ActionDispatcher.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/EventHub.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/FrameDeadlineInput.java" \
+    "$root/tests/LanTransportTest.java" "$root/tests/PairingTest.java" "$root/tests/RemoteBridgeTest.java" "$root/tests/WssTransportTest.java" "$root/tests/RemoteHarness.java"
 "$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.LanTransportTest \
     "$build/test.p12" "$build/info.json"
 
 "$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.PairingTest
+
+"$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.RemoteBridgeTest
+
+"$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.WssTransportTest "$build/test.p12" "$build/events"

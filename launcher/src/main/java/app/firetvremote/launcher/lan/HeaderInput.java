@@ -15,6 +15,8 @@ final class HeaderInput extends InputStream {
     private int size, position;
     private boolean captured;
     private int remaining;
+    private boolean websocket;
+    void upgrade(){websocket=true;}
 
     HeaderInput(InputStream input) { this(input, System::nanoTime); }
     HeaderInput(InputStream input, Clock clock) {
@@ -53,6 +55,7 @@ final class HeaderInput extends InputStream {
         }
     }
     private int body(byte[] bytes,int offset,int length) throws IOException {
+        if(websocket)return input.read(bytes,offset,length);
         if(remaining==0) return -1;
         if(clock.now()-deadline>=0) throw new SocketTimeoutException("Body deadline");
         int n=input.read(bytes,offset,Math.min(length,remaining));

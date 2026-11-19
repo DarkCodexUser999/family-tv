@@ -1,6 +1,6 @@
 # v1 security and acceptance rules
 
-Day 3 implements bounded TLS pairing and bearer validation; WSS/control routes remain unimplemented. See docs/DAY_3_REVIEW.md for executable evidence and physical gates. A passing fixture alone does not prove transport enforcement.
+Day 5 local candidate adds bounded authenticated WSS state/actions to TLS pairing and bearer validation; HTTP controls and configuration routes remain planned. See docs/DAY_5_REVIEW.md for executable evidence and physical gates. A passing fixture alone does not prove transport enforcement.
 
 - Server OFF by default; enabling it must not leave the legacy TCP listener active as a bypass.
 - Same process as launcher, private Wi-Fi interface only, no root/accessibility/system permissions or global key injection.
@@ -21,3 +21,5 @@ Day 3 implements bounded TLS pairing and bearer validation; WSS/control routes r
 Exercise disabled state, wrong PIN, PIN expiry/reuse, revoked tokens, malformed frames, oversized bodies, traversal, slow clients, network change and foreground handoff. Run on API 22 and measure same-build disabled vs enabled PSS and input/launch timings. Targets are ceilings, not current measurements. Keep v1 prerelease if physical-device acceptance is unavailable.
 
 Pairing specifically caps JSON at 1024 bytes (below the general 16 KiB ceiling), with exactly three string fields and a Content-Length. Credentials are limited to eight phones; revocation UI currently removes all phones. Discovery exposes only api=1 and an instance name/port; never treat discovery as a trusted certificate source.
+
+Day 5 live-input bounds: two WSS sessions, one per phone; 4 KiB masked complete text frames only, <=40 frames/s/client, 2 s partial-frame and 1.5 s write deadlines. No idle heartbeat/poll. Eight queued inputs globally, eight replies/phone and 64 dedup IDs/phone for ten seconds. Actions expire at arrival and dispatch after 500 ms, carry an even lifecycle epoch, and must be <=50 ms in the future. Revoke closes sockets and invalidates pending commands. The phone keeps one in-flight action, never replays uncertain input, and retries connections only while foreground (1/2/4 s, three failures). See THIRD_PARTY.md for exact upstream source and local patches. PSS and Fire OS response times remain unmeasured.

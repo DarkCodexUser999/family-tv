@@ -8,6 +8,7 @@ import java.util.Map;
 /** Stores only SHA-256 bearer digests. Persistence must finish before a token is issued. */
 public final class PairingStore {
     public interface Disk { Map<String,String> load(); boolean save(Map<String,String> hashes); }
+    public volatile Runnable onRevoked;
     private final Disk disk;
     private final Map<String,String> hashes;
     public PairingStore(Disk disk) {
@@ -42,7 +43,7 @@ public final class PairingStore {
     }
     public synchronized boolean revokeAll() {
         if (!disk.save(new LinkedHashMap<String,String>())) return false;
-        hashes.clear(); return true;
+        hashes.clear(); Runnable listener=onRevoked;if(listener!=null)listener.run();return true;
     }
     public synchronized int count() { return hashes.size(); }
 }

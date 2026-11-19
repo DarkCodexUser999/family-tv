@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://familytv.invalid/protocol/v1/events.schema.json",
-  "title": "Family TV v1 foundational messages (planned, not implemented)",
+  "title": "Family TV v1 live events and foundational API types",
   "oneOf": [
     {
       "type": "object",
@@ -17,7 +17,7 @@
           "pattern": "^[A-Za-z0-9_-]{1,64}$"
         },
         "payload": {
-          "$ref": "#/$defs/Action"
+          "$ref": "#/$defs/RemoteAction"
         }
       },
       "required": [
@@ -102,9 +102,33 @@
         "payload"
       ],
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "type": {
+          "const": "state"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/RemoteState"
+        }
+      },
+      "required": [
+        "v",
+        "type",
+        "id",
+        "payload"
+      ],
+      "additionalProperties": false
     }
-  ]
-,
+  ],
   "$defs": {
     "Info": {"type": "object", "properties": {"apiVersion": {"const": 1}, "installationId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "pairingSessionId": {"type": "string", "pattern": "^[0-9a-f]{32}$"}, "pairingOpen": {"type": "boolean"}}, "required": ["apiVersion", "installationId", "pairingOpen"], "additionalProperties": false},
     "PairRequest": {"type": "object", "properties": {"sessionId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "pin": {"type": "string", "pattern": "^[0-9]{6}$"}, "deviceName": {"type": "string", "minLength": 1, "maxLength": 48}}, "required": ["sessionId", "pin", "deviceName"], "additionalProperties": false},
@@ -118,7 +142,9 @@
     "Rows": {"type": "object", "properties": {"apiVersion": {"const": 1}, "revision": {"type": "integer", "minimum": 0}, "rows": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"$ref": "#/$defs/Row"}}}, "required": ["apiVersion", "revision", "rows"], "additionalProperties": false},
     "Hidden": {"type": "object", "properties": {"apiVersion": {"const": 1}, "revision": {"type": "integer", "minimum": 0}, "packages": {"type": "array", "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$", "maxLength": 160}}}, "required": ["apiVersion", "revision", "packages"], "additionalProperties": false},
     "Focus": {"type": "object", "properties": {"package": {"anyOf": [{"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$", "maxLength": 160}, {"type": "null"}]}, "canNavigate": {"type": "boolean"}}, "required": ["package", "canNavigate"], "additionalProperties": false},
-    "Error": {"type": "object", "properties": {"apiVersion": {"const": 1}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "error": {"type": "object", "properties": {"code": {"type": "string", "enum": ["invalid_request", "unauthorized", "forbidden", "not_found", "conflict", "ui_unavailable", "too_large", "rate_limited", "busy"]}, "message": {"type": "string", "maxLength": 160}}, "required": ["code", "message"], "additionalProperties": false}}, "required": ["apiVersion", "requestId", "error"], "additionalProperties": false},
-    "Apps": {"type": "object", "properties": {"apiVersion": {"const": 1}, "revision": {"type": "integer", "minimum": 0}, "apps": {"type": "array", "maxItems": 25, "items": {"$ref": "#/$defs/App"}}, "nextCursor": {"anyOf": [{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, {"type": "null"}]}}, "required": ["apiVersion", "revision", "apps", "nextCursor"], "additionalProperties": false}
+    "Error": {"type": "object", "properties": {"apiVersion": {"const": 1}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "error": {"type": "object", "properties": {"code": {"type": "string", "enum": ["invalid_request", "unauthorized", "forbidden", "not_found", "conflict", "ui_unavailable", "too_large", "rate_limited", "busy", "expired"]}, "message": {"type": "string", "maxLength": 160}}, "required": ["code", "message"], "additionalProperties": false}}, "required": ["apiVersion", "requestId", "error"], "additionalProperties": false},
+    "Apps": {"type": "object", "properties": {"apiVersion": {"const": 1}, "revision": {"type": "integer", "minimum": 0}, "apps": {"type": "array", "maxItems": 25, "items": {"$ref": "#/$defs/App"}}, "nextCursor": {"anyOf": [{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, {"type": "null"}]}}, "required": ["apiVersion", "revision", "apps", "nextCursor"], "additionalProperties": false},
+    "RemoteAction": {"type": "object", "properties": {"id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"}, "action": {"type": "string", "enum": ["UP", "DOWN", "LEFT", "RIGHT", "OK", "BACK", "HOME", "OPTIONS"]}, "sentAtMs": {"type": "integer", "minimum": 0, "maximum": 999999999999999}, "epoch": {"type": "integer", "minimum": 0, "maximum": 999999999999999, "multipleOf": 2}}, "required": ["id", "action", "sentAtMs", "epoch"], "additionalProperties": false},
+    "RemoteState": {"type": "object", "properties": {"foreground": {"type": "boolean"}, "canNavigate": {"type": "boolean"}, "package": {"anyOf": [{"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$", "maxLength": 160}, {"type": "null"}]}, "epoch": {"type": "integer", "minimum": 0, "multipleOf": 2}, "serverTimeMs": {"type": "integer", "minimum": 0, "maximum": 999999999999999}}, "required": ["foreground", "canNavigate", "package", "epoch", "serverTimeMs"], "additionalProperties": false, "allOf": [{"if": {"properties": {"canNavigate": {"const": true}}}, "then": {"properties": {"foreground": {"const": true}}}}]}
   }
 }

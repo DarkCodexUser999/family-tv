@@ -17,9 +17,11 @@ final class BoundedRunner implements NanoHTTPD.AsyncRunner {
                 return thread;
             });
     private boolean closed;
+    private int capacity=ServerLimits.CLIENTS;
+    synchronized void enableEvents(){capacity=4;executor.setMaximumPoolSize(4);}
 
     @Override public synchronized void exec(NanoHTTPD.ClientHandler handler) {
-        if (closed || clients.size() >= ServerLimits.CLIENTS) { handler.close(); return; }
+        if (closed || clients.size() >= capacity) { handler.close(); return; }
         clients.add(handler);
         try { executor.execute(handler); }
         catch (RejectedExecutionException error) { clients.remove(handler); handler.close(); }

@@ -44,3 +44,10 @@ for case in cases:
         negative += 1
 assert positive > 0 and negative > 0
 print(f'PASS: OpenAPI, schema, auth/revision guards, {positive} positive and {negative} negative fixtures')
+
+# Validate actual host TLS/WSS producer output when the Java gate has run.
+for filename in ('state.json','ack.json'):
+    actual=ROOT/'launcher/build/lan-check/events'/filename
+    if actual.exists():
+        validators['event'].validate(json.loads(actual.read_text()))
+print('PASS: available actual WSS state/ACK output matches the event schema')

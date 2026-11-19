@@ -11,7 +11,7 @@
 - License: BSD-3-Clause; complete notice retained in `launcher/libs/NANOHTTPD-LICENSE.md`. This does not select a license for the rest of this repository.
 - No runtime transitive dependency in the published POM; Apache HTTP clients there are test-scoped, not included.
 
-Core is a small Java transport and supports supplying a TLS socket factory. It is an older dependency, not independently security-audited here. Review focused on its request buffering, worker creation, body/temp-file behavior, reverse DNS and shutdown before limiting the exposed surface. NanoWSD is NOT included or enabled yet; revisit its framing/auth/limits separately on Day 3.
+Core is a small Java transport and supports supplying a TLS socket factory. It is an older dependency, not independently security-audited here. Review focused on its request buffering, worker creation, body/temp-file behavior, reverse DNS and shutdown before limiting the exposed surface. Day 5 adds the separately reviewed NanoWSD source described below; the core JAR is unchanged.
 
 ## Mandatory adaptations
 
@@ -22,3 +22,16 @@ The direct build verifies the artifact SHA-256 and includes it in D8; Gradle use
 ## Remaining gates
 
 Actual Fire OS TLS/AndroidKeyStore interoperability, service lifecycle behavior, disabled/enabled PSS and navigation/launch impact have not been measured. Host TLS tests are not a device audit. Do not release the candidate as generally supported until these gates pass. No new root, accessibility or system permission is used; the two new permissions are normal Wi-Fi/network state access.
+
+## NanoWSD 2.3.1 — Day 5 local candidate
+
+- Maven source coordinate: org.nanohttpd:nanohttpd-websocket:2.3.1:sources.
+- Source: https://repo.maven.apache.org/maven2/org/nanohttpd/nanohttpd-websocket/2.3.1/nanohttpd-websocket-2.3.1-sources.jar
+- Published source SHA-1 verified: 2da79bf296879e85cb6700679809e4d6716e0f04.
+- Downloaded source archive SHA-256: 0852067223ffa2c6cbf50536964296651f454c43f9bde4536615c7f8d65baa2b.
+- Vendored file: launcher/src/main/java/fi/iki/elonen/NanoWSD.java. No separate runtime WebSocket JAR or transitive dependency.
+- BSD-3-Clause copyright/conditions/disclaimer retained in source and packaged as launcher/src/main/assets/licenses/NANOWSD-LICENSE.txt. This notice does not license the rest of Family TV.
+
+Local changes: protected input-stream constructor and frame-completion hook for one-shot deadlines; reject unmasked/over-4096-byte payloads before allocation; reject fragmented/continuation/binary frames. Existing upstream handshake/framing/UTF-8 validation remains in use. Authentication, strict Host/Origin/handshake checks, two-client cap, bounded queues, expiry/dedup, frame rate and read/write deadlines are application wrappers, not upstream guarantees.
+
+Review used the upstream source and actual TLS/frame tests, including the Dart native client. There is no independent security audit or Fire OS compatibility/memory result. Dependencies are old and deliberately scoped; hostile-LAN resource bounds and API22 validation remain release gates. Build includes the recursive source and bundled license using the existing direct/Gradle flows.

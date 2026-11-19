@@ -1,18 +1,28 @@
 package app.firetvremote.launcher.lan;
 
 import fi.iki.elonen.NanoHTTPD;
+import fi.iki.elonen.NanoWSD;
+import fi.iki.elonen.NanoWSD.WebSocketFrame.CloseCode;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.Semaphore;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import javax.net.ssl.SSLServerSocketFactory;
 
-/** Bounded TLS info and window-gated pairing; app/control routes remain unavailable. */
-public final class Transport extends NanoHTTPD {
+/** Bounded TLS pairing, cached status and authenticated foreground-only WSS controls. */
+public final class Transport extends NanoWSD {
     private final String host;
     private final String installationId;
     private PairingStore phones;
     private PairingWindow pairing;
+    private EventHub events;
+    private final Semaphore httpSlots=new Semaphore(2);
+    private final ThreadLocal<Connection> connection=new ThreadLocal<>();
+    private static final class Connection {
+        Socket socket;HeaderInput input;boolean permit=true;EventHub.Peer peer;
+    }
     private final ThreadLocal<String> peer = new ThreadLocal<>();
     private final BoundedRunner runner = new BoundedRunner();
     private final boolean testLoopback;
@@ -36,6 +46,16 @@ public final class Transport extends NanoHTTPD {
         this(address,tls,id); this.phones=phones; this.pairing=pairing;
     }
     void pairingForTest(PairingStore phones, PairingWindow pairing) { this.phones=phones; this.pairing=pairing; }
+    public Transport(InetAddress address,SSLServerSocketFactory tls,String id,PairingStore phones,PairingWindow pairing,LauncherBridge bridge) {
+        this(address,tls,id,phones,pairing); enableEvents(bridge);
+    }
+    void enableEvents(LauncherBridge bridge) {
+        runner.enableEvents();events=new EventHub(bridge,() -> System.nanoTime()/1000000L);
+        if(phones!=null)phones.onRevoked=events::revoke;
+    }
+    @Override public void stop(){
+        if(events!=null)events.close();super.stop();
+    }
     public void open() throws IOException {
         try { start(ServerLimits.READ_TIMEOUT_MS, true); }
         catch (IOException error) { stop(); throw error; }
@@ -48,7 +68,10 @@ public final class Transport extends NanoHTTPD {
                 try { limited.close(); } catch (IOException ignored) { }
             }
             @Override public void run() {
+                Connection current=null;
                 try {
+                    if(!httpSlots.tryAcquire())return;
+                    current=new Connection();current.socket=socket;current.input=limited;connection.set(current);
                     if (!ServerLimits.privateV4(socket.getInetAddress())
                             && !(testLoopback && socket.getInetAddress().isLoopbackAddress())) return;
                     // No reverse DNS lookup and no request-body temp-file manager.
@@ -64,7 +87,8 @@ public final class Transport extends NanoHTTPD {
                     // Parser failures (e.g. malformed percent escapes) must not escape a worker.
                     // Invalid, timed out and disconnected clients receive no further work.
                 } finally {
-                    peer.remove();
+                    peer.remove();connection.remove();
+                    if(current!=null){if(current.permit)httpSlots.release();if(current.peer!=null && events!=null)events.remove(current.peer);sockets.remove(current);}
                     close();
                     runner.closed(this);
                 }
@@ -80,9 +104,11 @@ public final class Transport extends NanoHTTPD {
                 || session.getHeaders().containsKey("expect")) return error(Response.Status.BAD_REQUEST,"invalid_request");
         if ("/v1/pair".equals(session.getUri()) && pairing!=null) return pair(session);
         if (!"/v1/info".equals(session.getUri())) {
-            if(AuthFilter.phone(phones,session.getHeaders().get("authorization"))==null)
-                return error(Response.Status.UNAUTHORIZED,"unauthorized");
-            // No WebSocket implementation yet; authenticated upgrades cannot bypass this gate.
+            String phone=AuthFilter.phone(phones,session.getHeaders().get("authorization"));
+            if(phone==null)return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            if(events!=null && "/v1/status".equals(session.getUri()) && session.getMethod()==Method.GET && emptyBody(session))
+                return json(Response.Status.OK,events.status());
+            if(events!=null && "/v1/events".equals(session.getUri()))return upgrade(session,phone);
             return error(Response.Status.NOT_FOUND,"not_found");
         }
         if(session.getMethod()!=Method.GET || session.getHeaders().containsKey("content-length")
@@ -90,6 +116,56 @@ public final class Transport extends NanoHTTPD {
         String id=pairing==null?null:pairing.sessionId();
         return json(Response.Status.OK,"{\"apiVersion\":1,\"installationId\":\""+installationId
                 +"\",\"pairingOpen\":"+(id!=null)+(id==null?"":",\"pairingSessionId\":\""+id+"\"")+"}");
+    }
+    private boolean emptyBody(IHTTPSession session){return !session.getHeaders().containsKey("content-length") || "0".equals(session.getHeaders().get("content-length"));}
+    private Response upgrade(IHTTPSession session,String phone){
+        String key=session.getHeaders().get("sec-websocket-key");
+        if(session.getMethod()!=Method.GET || !emptyBody(session) || !isWebsocketRequested(session)
+                || !"13".equals(session.getHeaders().get("sec-websocket-version")) || key==null
+                || !key.matches("[A-Za-z0-9+/]{21}[AQgw]==") || session.getHeaders().containsKey("sec-websocket-protocol"))
+            return error(Response.Status.BAD_REQUEST,"invalid_request");
+        Connection c=connection.get();
+        EventHub.Sink sink=new EventHub.Sink(){
+            @Override public void send(String text)throws IOException {cSocket(c).send(text);}
+            @Override public void close(){abort(c.socket);}
+        };
+        synchronized(phones){
+            // Revocation may race between serve() authentication and reserving an upgraded peer.
+            // Use the same store monitor as revokeAll(): it must see and close every accepted peer.
+            if(!phone.equals(phones.authenticate(session.getHeaders().get("authorization").substring(7))))
+                return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            c.peer=events.reserve(phone,sink);
+        }
+        if(c.peer==null)return error(Response.Status.SERVICE_UNAVAILABLE,"busy");
+        EventHub.Peer p=c.peer;
+        try {
+            c.input.upgrade();c.socket.setSoTimeout(0);c.socket.setSoLinger(true,0);
+            Response result=super.serve(session);
+            if(result.getStatus()!=Response.Status.SWITCH_PROTOCOL){events.remove(p);return result;}
+            c.permit=false;httpSlots.release();return result;
+        }catch(IOException|RuntimeException failed){events.remove(p);return error(Response.Status.BAD_REQUEST,"invalid_request");}
+    }
+    private final java.util.Map<Connection,BoundedSocket> sockets=new java.util.concurrent.ConcurrentHashMap<>();
+    private BoundedSocket cSocket(Connection c)throws IOException {BoundedSocket s=sockets.get(c);if(s==null)throw new IOException("Closed");return s;}
+    private static void abort(Socket socket){try{socket.setSoLinger(true,0);socket.close();}catch(IOException ignored){}}
+    @Override protected WebSocket openWebSocket(IHTTPSession handshake){
+        Connection c=connection.get();BoundedSocket socket=new BoundedSocket(handshake,c);sockets.put(c,socket);return socket;
+    }
+    private final class BoundedSocket extends WebSocket {
+        private final Connection c;private final FrameDeadlineInput frames;
+        private long second;private int count;
+        BoundedSocket(IHTTPSession session,Connection c){this(session,c,new FrameDeadlineInput(session.getInputStream(),events,() -> abort(c.socket)));}
+        BoundedSocket(IHTTPSession session,Connection c,FrameDeadlineInput frames){super(session,frames);this.c=c;this.frames=frames;}
+        @Override protected void onOpen(){events.activate(c.peer);}
+        @Override protected void onFrameRead(){frames.complete();long now=System.nanoTime()/1000000000L;if(now!=second){second=now;count=0;}if(++count>40)events.remove(c.peer);}
+        @Override protected void onMessage(WebSocketFrame frame){events.receive(c.peer,frame.getTextPayload());}
+        @Override protected void onPong(WebSocketFrame frame){}
+        @Override protected void onException(IOException error){}
+        @Override protected void onClose(CloseCode code,String reason,boolean remote){frames.complete();sockets.remove(c);events.remove(c.peer);}
+        @Override public synchronized void sendFrame(WebSocketFrame frame)throws IOException {
+            ScheduledFuture<?> timeout=events.deadline(() -> abort(c.socket),1500);
+            try{super.sendFrame(frame);}finally{if(timeout!=null)timeout.cancel(false);}
+        }
     }
     private Response pair(IHTTPSession session) {
         if(session.getMethod()!=Method.POST || !"application/json".equals(session.getHeaders().get("content-type")))

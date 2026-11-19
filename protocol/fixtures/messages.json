@@ -21,9 +21,11 @@
   {"name": "too many tiles", "schema": "Row", "valid": false, "value": {"packages": ["com.example.app0", "com.example.app1", "com.example.app2", "com.example.app3", "com.example.app4", "com.example.app5", "com.example.app6"]}},
   {"name": "hidden snapshot", "schema": "Hidden", "valid": true, "value": {"apiVersion": 1, "revision": 0, "packages": ["com.onemainstream.sonyliv.android"]}},
   {"name": "duplicate hidden package", "schema": "Hidden", "valid": false, "value": {"apiVersion": 1, "revision": 0, "packages": ["com.example.video", "com.example.video"]}},
-  {"name": "WS action", "schema": "event", "valid": true, "value": {"v": 1, "type": "action", "id": "example-1", "payload": {"id": "example-1", "action": "OK"}}},
-  {"name": "wrong WS version", "schema": "event", "valid": false, "value": {"v": 2, "type": "action", "id": "example-1", "payload": {"id": "example-1", "action": "OK"}}},
+  {"name": "WS action", "schema": "event", "valid": true, "value": {"v": 1, "type": "action", "id": "example-1", "payload": {"id": "example-1", "action": "OK", "sentAtMs": 1000, "epoch": 2}}},
+  {"name": "wrong WS version", "schema": "event", "valid": false, "value": {"v": 2, "type": "action", "id": "example-1", "payload": {"id": "example-1", "action": "OK", "sentAtMs": 1000, "epoch": 2}}},
   {"name": "unknown WS event", "schema": "event", "valid": false, "value": {"v": 1, "type": "shell", "id": "example-1", "payload": {"id": "example-1", "action": "OK"}}},
-  {"name": "WS command mismatch", "schema": "event", "valid": false, "value": {"v": 1, "type": "action", "id": "example-1", "payload": {"id": "other", "action": "OK"}}},
-  {"name": "hidden cross-row duplicate", "schema": "Rows", "valid": false, "value": {"apiVersion": 1, "revision": 0, "rows": [{"packages": ["com.example.video"]}, {"packages": ["com.example.video"]}]}}
+  {"name": "WS command mismatch", "schema": "event", "valid": false, "value": {"v": 1, "type": "action", "id": "example-1", "payload": {"id": "other", "action": "OK", "sentAtMs": 1000, "epoch": 2}}},
+  {"name": "hidden cross-row duplicate", "schema": "Rows", "valid": false, "value": {"apiVersion": 1, "revision": 0, "rows": [{"packages": ["com.example.video"]}, {"packages": ["com.example.video"]}]}},
+  {"name": "WS state", "schema": "event", "valid": true, "value": {"v": 1, "type": "state", "id": "s1", "payload": {"foreground": true, "canNavigate": true, "package": null, "epoch": 2, "serverTimeMs": 1000}}},
+  {"name": "WS controls while background", "schema": "RemoteState", "valid": false, "value": {"foreground": false, "canNavigate": true, "package": null, "epoch": 2, "serverTimeMs": 1000}}
 ]
