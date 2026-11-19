@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 
 import 'app.dart';
 import 'core/api/tv_api.dart';
+import 'core/api/events.dart';
+import 'features/remote/remote_controller.dart';
 import 'core/discovery/tv_discovery.dart';
 import 'core/storage/credential_store.dart';
 import 'features/pairing/pairing_controller.dart';
@@ -17,6 +19,7 @@ void main() {
   });
   runApp(
     FamilyTvApp(
+      remoteFactory: () => RemoteController(connector: PinnedRemoteConnector()),
       controller: PairingController(
         api: PinnedTvApi(),
         store: SecureCredentialStore(),

@@ -1,6 +1,6 @@
 # Family TV Remote
 
-Published Day 4 pairing preview; physical validation remains pending. One Flutter codebase for Android 8+/API 26 and iOS 15+ source. No D-pad, WSS or app controls yet; the existing TV app launch logic is unchanged.
+Day 5 source approved and published; physical validation remains pending. One Flutter codebase for Android 8+/API 26 and iOS 15+ source. Pairing and a foreground-only Family TV remote pad use pinned HTTPS/WSS; existing TV launch logic is preserved.
 
 ## Run from the monorepo root
 
@@ -28,7 +28,7 @@ The fingerprint is checked before any PIN is sent. The client rejects public/loo
 
 ## Local build result
 
-Android debug APK built and its signature verified: package app.familytv.family_tv_remote, min API 26, target API 36, arm64-v8a/armeabi-v7a/x86_64. The debug universal APK is about 159 MiB; release size is not measured. Both legacy APK builds and the new app checks pass locally; the approved source is published on main. No physical-phone verification is implied.
+Android debug APK built and its signature verified: package app.familytv.family_tv_remote, min API 26, target API 36, arm64-v8a/armeabi-v7a/x86_64. The debug universal APK is about 159 MiB; release size is not measured. Both legacy APK builds and the new app checks pass locally; Day 5 source is published on main after owner approval. No physical-phone verification is implied.
 
 ## Physical acceptance still pending
 
@@ -39,3 +39,16 @@ Permissions: Android INTERNET and CHANGE_WIFI_MULTICAST_STATE; iOS local-network
 See docs/MOBILE_DEPENDENCIES.md for reviewed versions/licenses and docs/DAY_4_REVIEW.md for actual evidence.
 
 The original 8 GiB tools image filled during the first full build and was safely grown offline to 16 GiB on 2026-11-18, preserving its files. This changes only the sparse tools image on ExSSD, not the physical drive format.
+
+## Remote pad — Day 5 candidate
+
+After pairing (or loading saved credentials), choose Open remote. The initial authenticated WSS state must arrive before the eight buttons enable. Home/Back/Options apply inside Family TV only. Starting another app disables controls; return with the physical remote. No TV power/volume or global streaming-app navigation.
+
+One input at a time with visible feedback; no automatic action retry. A missing reply is uncertain, so reconnect never repeats it. Backgrounding closes the session/cancels retries; foreground recovery gets current state. Network reconnect is bounded to three consecutive failures at 1/2/4 s. The TV rejects stale or repeated commands independently.
+
+```sh
+sh scripts/check-mobile.sh
+sh scripts/check-remote-interop.sh
+```
+
+The second script runs the real Java transport and production Dart WSS connector on a private host interface with a fake launcher UI and synthetic credentials. It needs JDK17; no private interface produces an explicit skip. No hardware memory/latency or actual NSD claim. The remote preview is a Flutter widget render, not a device screenshot. See docs/DAY_5_REVIEW.md and protocol/THIRD_PARTY.md.

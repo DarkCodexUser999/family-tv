@@ -10,6 +10,9 @@ import 'package:family_tv_remote/app.dart';
 import 'package:family_tv_remote/features/pairing/pairing_controller.dart';
 
 import 'widget_test.dart' as fixtures;
+import 'remote_test.dart' as remote_fixtures;
+
+import 'package:family_tv_remote/features/remote/remote_controller.dart';
 
 void main() {
   setUpAll(() async {
@@ -80,4 +83,54 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('remote phone render and 200 percent text stay usable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final link = remote_fixtures.FakeConnector();
+    final controller = RemoteController(connector: link);
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: key,
+        child: FamilyTvApp(
+          controller: PairingController(
+            api: fixtures.FakeApi(),
+            store: fixtures.FakeStore()..value = fixtures.credential(),
+            discovery: fixtures.FakeDiscovery(),
+          ),
+          remoteFactory: () => controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open remote'));
+    await tester.pumpAndSettle();
+    link.sessions.single.state();
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await Directory('build/preview').create(recursive: true);
+      await File('build/preview/day5-remote-host-render.png')
+          .writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    });
+    expect(tester.takeException(), isNull);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Home and Back apply'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

@@ -14,7 +14,7 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 | Hardware tested | 32-bit ARM, approximately 1 GB RAM; limited free memory |
 | Phone remote | Android 8.0 / API 26 or newer; broader device coverage remains unverified |
 | Implementation | Java, native Android Views; no Compose or native libraries; pinned NanoHTTPD transport |
-| Connectivity | Default-off HTTPS info, PIN pairing and discovery; phone controls planned |
+| Connectivity | Default-off HTTPS pairing/discovery; Day 5 candidate adds pinned WSS controls inside Family TV |
 | Build | JDK 17, Android SDK 36, Build Tools 35.0.0; direct shell build |
 
 ## What it does
@@ -26,20 +26,20 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 - Supports local tile and backdrop overrides, with generated artwork as a fallback.
 - Hides unwanted tiles through an editable asset list without uninstalling their packages.
 - Supports per-app task flags rather than forcing one launch strategy on every app.
-- Includes legacy Android companion source and a Day 4 Flutter pairing preview (Android/iOS source); controls remain planned and legacy TCP autostart is disabled in the current launcher.
+- Includes legacy Android companion source and Flutter Android/iOS source; Day 5 local candidate adds a foreground-only pad. Legacy TCP autostart is disabled.
 
 ## What it does not promise
 
 - HOME interception did **not** activate on the tested Fire OS build. The experimental service remains in source but is not enabled by the normal install steps.
 - BACK is controlled partly by the launched app. A single press does not consistently return to Family TV.
-- The optional in-process server exposes info and PIN pairing; phone controls remain planned. It cannot navigate Netflix, YouTube or other apps system-wide.
+- The optional in-process server supports pairing and, in the Day 5 candidate, foreground-only semantic controls. It cannot navigate Netflix, YouTube or other apps system-wide.
 - Volume/mute buttons are disabled. TV power and IR volume control are not implemented.
 - No bundled streaming apps, subscription access, account bypass, content scraping or app-data migration.
 - No proven frame-time or speed advantage over Amazon Home.
 
 ## Experimental remote transport
 
-The published Day 2 transport replaces legacy TCP autostart with an OFF-by-default HTTPS info server. Day 3 adds expiring PIN pairing, hashed phone credentials, bearer checks, discovery and revoke-all settings. New Flutter controls are not implemented; the old native companion cannot control this transport. See [Day 3 review](docs/DAY_3_REVIEW.md) for setup and honest validation limits. Physical Fire OS TLS/discovery/memory/latency acceptance remains pending.
+Day 5 adds authenticated WSS state/events and a phone D-pad with no input replay, published after owner approval. The default-off server controls Family TV only. Existing native companion remains incompatible with the new transport. See [Day 5 review](docs/DAY_5_REVIEW.md) for setup/evidence and pending physical Fire OS TLS/discovery/PSS/latency gates.
 
 ## Start here
 
@@ -54,7 +54,9 @@ The published Day 2 transport replaces legacy TCP autostart with an OFF-by-defau
 
 ```text
 launcher/          TV activity, app catalog, artwork, local remote server
-remote/            Android phone companion
+remote/            Legacy native Android phone companion
+mobile/            Flutter Android/iOS pairing and Family TV pad
+protocol/          Versioned contracts, fixtures and security notes
 shared/            HMAC challenge-response protocol
 launcher/src/main/assets/
   rows.json        Row membership
@@ -78,6 +80,6 @@ The project brief used FireFrame, dumbtv, firedtvlauncher, FTVLaunchX, tvOS-Laun
 
 **License:** no redistribution license has been selected for this repository yet. Public source visibility is not an open-source license. Do not assume referenced projects share one license or that their code can be copied here without review.
 
-## Phone app pairing preview
+## Phone app candidate
 
-Day 4 adds a shared Flutter pairing app under mobile/ (published pairing preview). It discovers or manually addresses Family TV, verifies its certificate fingerprint, enters the TV PIN and saves credentials securely. It does not provide remote controls yet. See [mobile setup](mobile/README.md), [review and tests](docs/DAY_4_REVIEW.md), and [dependency review](docs/MOBILE_DEPENDENCIES.md). Physical phone/TV and iOS build acceptance remain pending.
+Day 5 adds a remote pad to the Flutter pairing source under mobile/. Exact TLS certificate pinning and saved credentials authenticate the connection; D-pad/OK/Home/Back/Options work only while Family TV is open. No other-app input, TV volume or power. See [mobile setup](mobile/README.md), [local evidence](docs/DAY_5_REVIEW.md), and [dependencies](docs/MOBILE_DEPENDENCIES.md). Source is published; physical phone/TV, memory/latency and iOS build acceptance remain pending.

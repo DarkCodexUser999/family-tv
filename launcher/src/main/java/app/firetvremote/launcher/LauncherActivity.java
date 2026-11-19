@@ -77,6 +77,7 @@ public final class LauncherActivity extends Activity {
             if (pendingTileLabel != null) pendingTile.setText(pendingTileLabel);
             pendingTile.setAlpha(1f);
             pendingTile = null;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.busy(this.lanUi,false);
             pendingTileLabel = null;
         }
         launchDispatched = false;
@@ -447,6 +448,7 @@ public final class LauncherActivity extends Activity {
 
     @Override
     protected void onPause() {
+        app.firetvremote.launcher.lan.LauncherBridge.SHARED.pause(lanUi);
         focusOnReturn = focusedKey;
         if (!TextUtils.equals(lastSavedFocus, focusedKey)) {
             getPreferences(MODE_PRIVATE).edit().putString("last-focus", focusedKey).apply();
@@ -465,6 +467,8 @@ public final class LauncherActivity extends Activity {
             restoreFocus(focusOnReturn);
         }
         focusOnReturn = null;
+        app.firetvremote.launcher.lan.LauncherBridge.SHARED.resume(lanUi);
+        app.firetvremote.launcher.lan.LauncherBridge.SHARED.busy(lanUi,pendingTile!=null);
     }
 
     @Override
@@ -520,6 +524,13 @@ public final class LauncherActivity extends Activity {
         return super.onKeyUp(code, event);
     }
 
+    private final app.firetvremote.launcher.lan.LauncherBridge.Ui lanUi=new app.firetvremote.launcher.lan.LauncherBridge.Ui(){
+        @Override public void post(Runnable task){pairUi.post(task);}
+        @Override public boolean perform(String action){
+            if(!app.firetvremote.launcher.lan.ActionMessage.allowed(action)||isFinishing())return false;
+            handleFamilyAction(action);return true;
+        }
+    };
     private final app.firetvremote.launcher.lan.LanService.Notice pairNotice=message -> {
         if(remoteDialog!=null) remoteDialog.dismiss();
         showRemoteDialog(new AlertDialog.Builder(this).setTitle("Phone access")
@@ -596,6 +607,9 @@ public final class LauncherActivity extends Activity {
 
     private void handleRemote(String action) {
         if (remote == null) return;
+        handleFamilyAction(action);
+    }
+    private void handleFamilyAction(String action) {
         if ("HOME".equals(action)) {
             if (remoteDialog != null) remoteDialog.dismiss();
             if (firstFavorite != null) firstFavorite.requestFocus();
@@ -666,6 +680,7 @@ public final class LauncherActivity extends Activity {
             }
             if (focused) {
                 focusedKey = key;
+                app.firetvremote.launcher.lan.LauncherBridge.SHARED.focus(artworkPackage);
                 focusScene(row, tileButton, artworkPackage);
             }
         });
@@ -683,6 +698,7 @@ public final class LauncherActivity extends Activity {
             }
             if (pendingTile != null) return;
             pendingTile = tileButton;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.busy(lanUi,true);
             if ("app:in.startv.hotstar".equals(key)) {
                 pendingTileLabel = tileButton.getText();
                 tileButton.setText("Loading…");

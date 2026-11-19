@@ -117,7 +117,7 @@ public final class LanService extends Service {
                     });
                     pairing=new PairingWindow(phones,android.os.SystemClock::elapsedRealtime,new java.security.SecureRandom());
                 }
-                Transport nextServer = new Transport(next, identity.sockets, id, phones, pairing);
+                Transport nextServer = new Transport(next, identity.sockets, id, phones, pairing, LauncherBridge.SHARED);
                 nextServer.open();
                 server = nextServer;
                 address = next.getHostAddress();
@@ -125,7 +125,7 @@ public final class LanService extends Service {
                 if (destroyed || !enabled(this)) { closeServer(); return; }
                 publish("Address: https://" + address + ":" + server.getListeningPort()
                         + "/v1/info\n\nCertificate SHA-256:\n" + identity.fingerprint
-                        + "\n\nPair a phone using Family TV settings. Phone controls arrive in a later build. Discovery failure: use this manual address.");
+                        + "\n\nPair a phone using Family TV settings. Paired phones can navigate Family TV while it is open. Discovery failure: use this manual address.");
             } catch (Exception error) {
                 closeServer();
                 publish("Secure remote access could not start. Switch OFF and retry.");

@@ -1,6 +1,6 @@
 # Family TV Remote architecture
 
-Status: target architecture with Day 3 default-off HTTPS info/PIN pairing, hashed phone credentials, bearer checks, NSD/manual fallback and TV revoke-all implemented in source. Day 4 Flutter pairing UI/client source is published and Android-build tested; iOS build/device acceptance remains pending; WebSocket sessions/commands and edits remain planned. Legacy /remote and /shared are retained, but TCP autostart is disabled and the old companion cannot control this transport. Authenticated unimplemented routes/upgrades return 404; unauthenticated requests return 401. Physical Fire OS acceptance remains pending. See DAY_3_REVIEW.md for evidence and limits.
+Status: Day 5 code approved for publication on 2026-11-19; physical acceptance remains pending. Default-off HTTPS pairing/discovery plus authenticated WSS state/actions and Flutter remote pad are implemented in source. Only foreground Family TV receives commands. Apps/edit/upload/provider routes remain planned; authenticated unimplemented routes return 404. Legacy TCP autostart remains disabled. Physical Fire OS/iOS memory, TLS/NSD and latency acceptance remains pending. See DAY_5_REVIEW.md for actual evidence.
 
 ## Stack and repository
 
@@ -26,7 +26,7 @@ Use existing resolved app components and cached launch intents. Permit launching
 
 ## Day 3 implementation boundary
 
-Current pairing accepts at most 1024 UTF-8 bytes and stores only hashed tokens and random device IDs (device labels are validated but not persisted). TV revocation removes all phones; individual phone management, a pairing QR and WebSocket sessions are later work. /v1/info adds pairingSessionId only while the explicit TV-opened window is active. Tests prove host TLS and fake-platform callback behavior, not Fire OS keystore, multicast cleanup, memory or latency. The following sections describe target behavior where features extend beyond that boundary.
+Current pairing accepts at most 1024 UTF-8 bytes and stores only hashed tokens and random device IDs (device labels are validated but not persisted). TV revocation removes all phones; individual phone management and a pairing QR are later work; bounded WSS sessions are present in the Day 5 candidate. /v1/info adds pairingSessionId only while the explicit TV-opened window is active. Tests prove host TLS and fake-platform callback behavior, not Fire OS keystore, multicast cleanup, memory or latency. The following sections describe target behavior where features extend beyond that boundary.
 
 ## Discovery, pairing and transport
 
@@ -59,7 +59,7 @@ All JSON is UTF-8. Responses include `apiVersion:1`; errors use `{error:{code,me
 | `DELETE /v1/pairings/{deviceId}` | Revoke own device; deleting other phones is TV-only |
 | `GET /v1/events` (WSS upgrade) | Authenticated actions/acks, focus, lifecycle, revisions and job progress |
 
-WS envelope: `{v:1,type,id,payload}`; commands receive `ack` or `error` with the same ID. Input expires after 500 ms; bounded 64-ID dedup cache prevents duplicate OK/launch for ten seconds. Each connection has ≤8 queued input messages; coalesce focus/status output and disconnect clients that do not read. No continuous focus polling or application heartbeat; rely on lifecycle/network events, and bounded reconnect backoff only while the phone is active. Reconnect fetches current snapshots; old queued actions are never replayed. Actions are capped at 20/s/phone and 30/s globally; HTTP 10 requests/s/phone with small burst capacity.
+WS envelope: `{v:1,type,id,payload}`; commands receive `ack` or `error` with the same ID. Input expires after 500 ms; bounded dedup cache retains the last 64 IDs per phone for at most ten seconds; cached duplicates never re-execute. The current dispatcher has ≤8 queued inputs globally (stricter than the per-client target); coalesce focus/status output and disconnect clients that do not read. No continuous focus polling or application heartbeat; rely on lifecycle/network events, and bounded reconnect backoff only while the phone is active. Reconnect receives a fresh state snapshot; old queued actions are never replayed. Actions are capped at 20/s/phone and 30/s globally; HTTP 10 requests/s/phone with small burst capacity.
 
 ## Artwork, TMDB and configuration
 
@@ -71,11 +71,11 @@ TMDB is optional and OFF until configured; credentials remain app-private and ar
 
 | Resource | Proposed acceptance ceiling; measure rather than assume |
 |---|---|
-| Disabled | No server sockets, advertisement, server threads or timers; no new focus-path work |
+| Disabled | No server sockets, advertisement, server threads or timers; cached focus/lifecycle writes only, no focus allocation or I/O |
 | Enabled idle | Aim ≤5 MiB incremental PSS, hard review gate >8 MiB versus same-build disabled baseline |
-| Threads/process | Same launcher process; one acceptor, ≤2 HTTP workers, ≤2 WS reader threads, one shared media worker; no thread per unlimited client |
+| Threads/process | Same launcher process; one acceptor, ≤2 HTTP workers + ≤2 WS readers, one sleeping event writer and one one-shot deadline worker; no extra process. Future media worker remains planned |
 | Payloads | HTTP JSON 16 KiB, headers 8 KiB, WS frame/message 4 KiB, streaming upload 2 MiB; bounded connection/read/idle timeouts |
-| Queues/cache | ≤8 inputs/client, bounded output/dedup, four small backdrop bitmaps; single media job; no unbounded request or executor queue |
+| Queues/cache | ≤8 inputs globally, ≤8 replies/phone, coalesced state, 64 recent IDs/phone; four small backdrop bitmaps. Media jobs remain planned |
 | UI/performance | No blocking I/O or parsing on focus/click; no repeatable regression beyond measurement noise (initial gate >5% median or >10 ms p95 requires investigation) |
 
 Private LAN is not a trust boundary: pin TLS, compare token hashes safely, bound work before parsing, deny traversal/shell intents, test malformed frames and revocation, and minimize logs. Pairing tokens are authenticated transport credentials, not permission to change system settings. Preserve the existing restore command; extend only when needed to stop the new service/unregister NSD, keeping other apps and accessibility services intact. No new INTERNET/system capabilities are assumed beyond the existing normal network permissions and platform-specific local-network consent.
@@ -87,3 +87,9 @@ Days 1–7 add a versioned opt-in transport alongside the legacy implementation 
 Use protocol fixtures, JVM/host tests, Flutter unit/widget tests and analyzer before pushes once `/mobile` exists. CI builds launcher/API 22 and Flutter Android, then a macOS iOS simulator build when capacity is available. Mock bridge/phone demos validate logic but cannot establish Fire OS latency, NSD/TLS behavior or memory. No physical TV/iPhone is currently available; track these as pending gates and withhold a stable v1.0 release if essential acceptance cannot run. iOS simulator testing does not prove physical LAN discovery, and App Store/TestFlight distribution requires signing/account decisions beyond a free local simulator build.
 
 Sources: [Flutter platform support](https://docs.flutter.dev/reference/supported-platforms), [Android NSD](https://developer.android.com/develop/connectivity/wifi/use-nsd), [Apple LAN privacy](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd). Pin and verify exact dependency versions before implementation; this document specifies targets, not completed benchmarks or a completed license audit.
+
+## Day 5 wire details (implemented local candidate)
+
+Native WSS uses the same pinned certificate and bearer header as HTTPS. Initial and coalesced `state` payloads contain foreground, canNavigate, focused package/null, even lifecycle epoch and serverTimeMs (monotonic). Action payloads add sentAtMs and epoch to matching envelope/payload IDs; the phone advances the received server time with its Stopwatch. Reject stale lifecycle/input before posting and again on dispatch. A recent duplicate returns its previous result without replay. State and acknowledgements are serialized off the focus path.
+
+Use scripts/check-mobile.sh and scripts/check-remote-interop.sh for Flutter/analyzer and real Dart-to-Java host interoperability. The latter needs JDK17 and private IPv4 and is not a device/performance test. App launching through the pad's OK reuses existing handlers; the explicit phone app grid is Day 6. Minimal /v1/status has catalogRevision=0 and tmdbConfigured=false until future features. HTTP /v1/actions is still reserved; current control transport is WSS only.

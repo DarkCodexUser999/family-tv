@@ -34,7 +34,7 @@ Commit links use https://github.com/DarkCodexUser999/family-tv/commit/<hash>.
 Issue #1: https://github.com/DarkCodexUser999/family-tv/issues/1 (closed).
 Day 1 CI: https://github.com/DarkCodexUser999/family-tv/actions/runs/43675110742 (success).
 
-## Blocked on device acceptance — Days 2–4 code published
+## Blocked on device acceptance — Days 2–5 code published
 
 - **Day 2: tiny opt-in launcher server.** Published after approval; host checks/CI passed. Physical TLS/PSS/latency gates remain open, issue #2.
 
@@ -44,7 +44,7 @@ Day 1 CI: https://github.com/DarkCodexUser999/family-tv/actions/runs/43675110742
 
 ## Backlog — planned, not completed
 
-- Day 5: foreground-aware remote pad and events.
+- Day 5: foreground-aware remote pad/events published after owner approval, issue #5; host analyzer/tests and all three APK builds pass. Final CI/commit links are on the live card; physical acceptance stays Blocked.
 - Day 6: installed-app phone grid and launch requests.
 - Day 7: Android integration and honest alpha checkpoint.
 - Day 8: iOS parity and local-network permissions.

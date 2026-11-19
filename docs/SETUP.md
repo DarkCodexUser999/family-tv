@@ -136,7 +136,7 @@ Neither command uninstalls streaming apps. The phone companion can be removed th
 | App asks for login | The installed app's own account state; launcher does not supply credentials |
 | BACK stays inside app | App-specific navigation; universal interception is not implemented |
 | HOME opens Amazon Home | Expected on the tested firmware |
-| Legacy phone cannot connect | Expected: legacy TCP autostart is disabled; new Flutter controls are not implemented |
+| Legacy phone cannot connect | Expected: legacy TCP autostart is disabled; use the Flutter HTTPS/WSS candidate for Family TV only |
 | APK signature mismatch | Use the original private signing key; do not clear data as a shortcut |
 
 ## Remote build toolchain — Day 1

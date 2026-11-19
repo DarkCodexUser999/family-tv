@@ -4,10 +4,17 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'pairing_controller.dart';
+import '../remote/remote_controller.dart';
+import '../remote/remote_screen.dart';
 
 class PairingScreen extends StatefulWidget {
-  const PairingScreen({super.key, required this.controller});
+  const PairingScreen({
+    super.key,
+    required this.controller,
+    this.remoteFactory,
+  });
   final PairingController controller;
+  final RemoteController Function()? remoteFactory;
   @override
   State<PairingScreen> createState() => _PairingScreenState();
 }
@@ -106,7 +113,7 @@ class _PairingScreenState extends State<PairingScreen>
               applicationVersion: '0.1.0',
               children: [
                 const Text(
-                  'Pairing preview. Remote controls arrive in a later milestone.',
+                  'Pair over home Wi-Fi and navigate Family TV. Controls work only while Family TV is open; other apps, TV power and volume need the physical remote.',
                 ),
               ],
             ),
@@ -237,9 +244,29 @@ class _PairingScreenState extends State<PairingScreen>
                         : 'A pairing key is saved on this phone. The TV’s current reachability and token validity have not been checked.',
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'D-pad and app controls are coming next. This build cannot navigate the TV or other apps.',
+                  Text(
+                    widget.remoteFactory == null
+                        ? 'D-pad and app controls are coming next. This build cannot navigate the TV or other apps.'
+                        : 'Open the remote to navigate Family TV while it is active on your TV.',
                   ),
+                  if (widget.remoteFactory != null && c.credential != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: FilledButton(
+                        onPressed: c.busy
+                            ? null
+                            : () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RemoteScreen(
+                                    credential: c.credential!,
+                                    controller: widget.remoteFactory!(),
+                                  ),
+                                ),
+                              ),
+                        child: const Text('Open remote'),
+                      ),
+                    ),
                   const SizedBox(height: 24),
                   OutlinedButton(
                     onPressed: c.busy ? null : _forget,

@@ -2,10 +2,12 @@ import 'package:material_ui/material_ui.dart';
 
 import 'features/pairing/pairing_controller.dart';
 import 'features/pairing/pairing_screen.dart';
+import 'features/remote/remote_controller.dart';
 
 class FamilyTvApp extends StatefulWidget {
-  const FamilyTvApp({super.key, required this.controller});
+  const FamilyTvApp({super.key, required this.controller, this.remoteFactory});
   final PairingController controller;
+  final RemoteController Function()? remoteFactory;
   @override
   State<FamilyTvApp> createState() => _FamilyTvAppState();
 }
@@ -35,6 +37,9 @@ class _FamilyTvAppState extends State<FamilyTvApp> {
         style: OutlinedButton.styleFrom(minimumSize: const Size(48, 56)),
       ),
     ),
-    home: PairingScreen(controller: widget.controller),
+    home: PairingScreen(
+      controller: widget.controller,
+      remoteFactory: widget.remoteFactory,
+    ),
   );
 }

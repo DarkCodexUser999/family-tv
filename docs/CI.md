@@ -32,3 +32,7 @@ References: [checkout](https://github.com/actions/checkout), [setup-java](https:
 ## SDK tool portability
 
 The D8 and apksigner SDK wrappers declare Bash as their interpreter. The build script invokes them with `bash`, rather than forcing Ubuntu's POSIX `sh` to parse Bash arrays. The first CI run exposed this Mac/Linux difference; the regression checks passed before the APK build encountered it.
+
+## Day 5 candidate checks
+
+Updated check-lan.sh includes 29 remote bridge/expiry/bounds checks and 45 actual TLS/WSS checks. The existing workflow runs these checks after publication; final commit/CI evidence is recorded on the live project card after completion. Flutter analyzer, 21 unit/widget/TLS tests and the separate Dart/Java interoperability check run locally using scripts/check-mobile.sh and scripts/check-remote-interop.sh. Mobile CI expansion stays on Day 13; it is not claimed here.
