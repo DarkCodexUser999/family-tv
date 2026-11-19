@@ -37,6 +37,11 @@ public final class LauncherActivity extends Activity {
     private static final int PRIMARY_TEXT = 0xfff4f7ff;
     private static final String LOG_TAG = "FamilyTV";
     private final Map<String, Button> focusTargets = new LinkedHashMap<>();
+    private static final String SETTINGS_KEY = "settings";
+    private Button gear;
+    private boolean catalogFailed;
+    private boolean isSettingsLaunchPaused;
+    private boolean settingsOpening;
     private Button firstFavorite;
     private TopShelf backdrop;
     private FrameLayout scene;
@@ -102,7 +107,18 @@ public final class LauncherActivity extends Activity {
                 : savedInstanceState.getString("last-focus");
         lastSavedFocus = restore;
         backdrop.worker.execute(() -> {
-            Map<String, AppCatalog.Entry> catalog = AppCatalog.list(this);
+            Map<String, AppCatalog.Entry> catalog;
+            try {
+                catalog = AppCatalog.list(this);
+            } catch (RuntimeException error) {
+                Log.w(LOG_TAG, "App discovery unavailable", error);
+                runOnUiThread(() -> {
+                    if (isDestroyed() || isFinishing()) return;
+                    catalogFailed = true;
+                    buildHome();
+                });
+                return;
+            }
             catalog.keySet().removeAll(hiddenPackages);
             LaunchRoute.preferPrimeApp(catalog.keySet());
             try {
@@ -144,10 +160,9 @@ public final class LauncherActivity extends Activity {
                 rowData.get(target).add(tile);
             }
             for(int r=rowData.size()-1;r>=0;r--) if(rowData.get(r).isEmpty()) rowData.remove(r);
-            Intent settings = new Intent(android.provider.Settings.ACTION_SETTINGS);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
-                buildHome(settings);
+                buildHome();
                 restoreFocus(restore);
             });
         });
@@ -173,7 +188,8 @@ public final class LauncherActivity extends Activity {
         drawable.setBounds(0, 0, tile.icon.getWidth(), tile.icon.getHeight());
         drawable.draw(new Canvas(tile.icon));
         tile.color = TopShelf.dominant(tile.icon);
-        backdrop.prepare(tile.pkg, tile.icon, tile.color);
+        try { backdrop.prepare(tile.pkg, tile.icon, tile.color); }
+        catch (RuntimeException unavailable) { Log.w(LOG_TAG, "Backdrop unavailable for " + tile.pkg); }
         int width = px(365), height = px(205);
         Bitmap flat = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(flat);
@@ -182,18 +198,7 @@ public final class LauncherActivity extends Activity {
         paint.setColor(tile.color);
         canvas.drawRoundRect(rect, px(40), px(40), paint);
         paint.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN));
-        Bitmap art = null;
-        java.io.File override = new java.io.File("/sdcard/FamilyTV/tiles/"+tile.pkg+".png");
-        try {
-            override.getParentFile().mkdirs();
-            if (override.isFile()) {
-                android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
-                opts.inJustDecodeBounds=true; android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
-                opts.inSampleSize=1;
-                while(opts.outWidth/opts.inSampleSize>width*2 || opts.outHeight/opts.inSampleSize>height*2) opts.inSampleSize*=2;
-                opts.inJustDecodeBounds=false; art=android.graphics.BitmapFactory.decodeFile(override.toString(),opts);
-            }
-        } catch (SecurityException error) { Log.w(LOG_TAG, "Tile override unavailable", error); }
+        Bitmap art = ArtworkFiles.decode(ArtworkFiles.tile(tile.pkg), width, height, Bitmap.Config.ARGB_8888);
         Drawable banner = entry.info.activityInfo.loadBanner(getPackageManager());
         if (banner == null) banner=entry.info.activityInfo.applicationInfo.loadBanner(getPackageManager());
         if (art == null && banner != null) {
@@ -226,7 +231,7 @@ public final class LauncherActivity extends Activity {
 
     private int px(int value) { return Math.round(value * uiScale); }
 
-    private void buildHome(Intent settings) {
+    private void buildHome() {
         rows = new FrameLayout(this);
         rows.setClipChildren(false); rows.setClipToPadding(false);
         FrameLayout viewport = new FrameLayout(this);
@@ -254,15 +259,21 @@ public final class LauncherActivity extends Activity {
         clock.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(px(330), px(96), Gravity.TOP | Gravity.RIGHT);
         cp.topMargin = px(54); cp.rightMargin = px(220); scene.addView(clock, cp);
-        Button gear = new Button(this);
-        gear.setId(View.generateViewId()); gear.setText("⚙"); gear.setContentDescription("Fire TV settings");
+        gear = new Button(this);
+        gear.setId(View.generateViewId()); gear.setText("⚙"); gear.setContentDescription("Family TV settings");
         gear.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(64));
         gear.setTextColor(PRIMARY_TEXT); gear.setPadding(0,0,0,0); gear.setStateListAnimator(null);
         final Drawable settingsIdle = settingsSurface(false);
         final Drawable settingsFocused = settingsSurface(true);
         gear.setBackground(settingsIdle);
-        gear.setOnFocusChangeListener((v, focused) -> gear.setBackground(focused ? settingsFocused : settingsIdle));
-        gear.setOnClickListener(v -> openIntent("Settings", settings));
+        gear.setOnFocusChangeListener((v, focused) -> {
+            gear.setBackground(focused ? settingsFocused : settingsIdle);
+            if (focused) {
+                focusedKey = SETTINGS_KEY;
+                app.firetvremote.launcher.lan.LauncherBridge.SHARED.focus(null);
+            }
+        });
+        gear.setOnClickListener(v -> showOptions());
         FrameLayout.LayoutParams gp = new FrameLayout.LayoutParams(px(96), px(96), Gravity.TOP | Gravity.RIGHT);
         gp.topMargin = px(54); gp.rightMargin = px(96); scene.addView(gear, gp);
         if (!upper.isEmpty()) {
@@ -271,7 +282,8 @@ public final class LauncherActivity extends Activity {
             for (Button button : upper) button.setNextFocusUpId(gear.getId());
         } else {
             TextView empty = new TextView(this);
-            empty.setText("No apps to show. Check installed apps in Settings.");
+            empty.setText(catalogFailed ? "Couldn’t load apps. Open Settings to retry."
+                    : "No apps to show. Check installed apps in Settings.");
             empty.setTextColor(PRIMARY_TEXT);
             empty.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(40));
             empty.setGravity(Gravity.CENTER);
@@ -428,7 +440,7 @@ public final class LauncherActivity extends Activity {
     }
 
     private void restoreFocus(String key) {
-        Button target = focusTargets.get(key);
+        Button target = SETTINGS_KEY.equals(key) ? gear : focusTargets.get(key);
         // The saved app may live in a row whose interactive Views are still lazy.
         if (target == null && rowFocus != null) {
             int row = rowFocus.rowOf(key);
@@ -442,6 +454,9 @@ public final class LauncherActivity extends Activity {
 
     @Override
     protected void onPause() {
+        isSettingsLaunchPaused = true;
+        settingsOpening = false;
+        scene.removeCallbacks(launchSettings);
         app.firetvremote.launcher.lan.LauncherBridge.SHARED.pause(lanUi);
         focusOnReturn = focusedKey;
         if (!TextUtils.equals(lastSavedFocus, focusedKey)) {
@@ -455,6 +470,7 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        isSettingsLaunchPaused = false;
         backdrop.resume();
         if (launchDispatched) clearPending();
         if (focusOnReturn != null && getCurrentFocus() != focusTargets.get(focusOnReturn)) {
@@ -499,6 +515,8 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onDestroy() {
         pairUi.removeCallbacks(pairExpiry);
+        settingsOpening = false;
+        scene.removeCallbacks(launchSettings);
         clearPending();
         if (backdrop != null) backdrop.close();
         super.onDestroy();
@@ -534,9 +552,14 @@ public final class LauncherActivity extends Activity {
     private void showOptions() {
         if (remoteDialog != null) return;
         boolean enabled = app.firetvremote.launcher.lan.LanService.enabled(this);
+        List<String> options = new ArrayList<>(java.util.Arrays.asList("Remote access: " + (enabled ? "ON" : "OFF"),
+                        "Remote connection details", "Pair a phone", "Revoke all phone access", "Forget legacy phones",
+                        "Fire TV Settings"));
+        if (catalogFailed) options.add("Retry loading apps");
         showRemoteDialog(new AlertDialog.Builder(this).setTitle("Family TV settings")
-                .setItems(new String[] {"Remote access: " + (enabled ? "ON" : "OFF"),
-                        "Remote connection details", "Pair a phone", "Revoke all phone access", "Forget legacy phones"}, (dialog, choice) -> {
+                .setItems(options.toArray(new String[0]), (dialog, choice) -> {
+                    if (choice == 6) { recreate(); return; }
+                    if (choice == 5) { openFireSettings(); return; }
                     if (choice == 0) app.firetvremote.launcher.lan.LanService.setEnabled(this, !enabled);
                     else if (choice == 1) showRemoteDialog(new AlertDialog.Builder(this)
                             .setTitle("Remote access").setMessage(app.firetvremote.launcher.lan.LanService.connectionDetails())
@@ -711,9 +734,33 @@ public final class LauncherActivity extends Activity {
         return button;
     }
 
+    private void openFireSettings() {
+        if (pendingTile != null || settingsOpening) return;
+        if (remoteDialog != null) remoteDialog.dismiss();
+        settingsOpening = true;
+        Toast.makeText(this, "Opening Fire TV Settings…", Toast.LENGTH_SHORT).show();
+        scene.postOnAnimation(() -> { if (settingsOpening) scene.post(launchSettings); });
+    }
 
-
-
+    private final Runnable launchSettings = () -> dispatchFireSettings();
+    private void dispatchFireSettings() {
+        if (!settingsOpening) return;
+        settingsOpening = false;
+        if (isFinishing() || isDestroyed() || isSettingsLaunchPaused) return;
+        if (gear != null) gear.requestFocus();
+        Intent settings = new Intent(android.provider.Settings.ACTION_SETTINGS);
+        try {
+            android.content.ComponentName component = settings.resolveActivity(getPackageManager());
+            if (component != null) {
+                Log.i(LOG_TAG, "Resolved Fire TV Settings -> " + component.flattenToShortString());
+                openIntent("Fire TV Settings", settings.setComponent(component));
+                return;
+            }
+        } catch (RuntimeException error) {
+            Log.w(LOG_TAG, "Cannot resolve Fire TV Settings");
+        }
+        openIntent("Fire TV Settings", null);
+    }
 
     private void openIntent(String label, Intent intent) {
         if (intent != null) {

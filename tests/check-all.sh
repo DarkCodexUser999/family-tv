@@ -2,6 +2,7 @@
 # Common local/CI gate. Android SDK is only required for the separate APK builds.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+python3 "$root/tests/check-catalog.py"
 sh "$root/tests/check-launcher-policy.sh"
 sh "$root/tests/check-rows.sh"
 sh "$root/tests/check-navigation.sh"

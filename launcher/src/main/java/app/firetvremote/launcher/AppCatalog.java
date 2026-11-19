@@ -30,28 +30,42 @@ final class AppCatalog {
             this.category = category;
         }
 
-
     }
 
     static Set<String> hiddenPackages(Context context) {
-        return readPackages(context, "hidden-apps.txt");
+        return readPackages(context, "hidden-apps.txt", java.util.Arrays.asList(
+                "com.amazon.alexashopping",
+                "com.amazon.gamehub",
+                "com.amazon.tahoe",
+                "com.amazon.shoptv.firetv.client",
+                "com.amazon.bueller.photos",
+                "com.amazon.hedwig",
+                "com.amazon.minitv.android.app",
+                "com.amazon.bueller.music",
+                "com.imdb.livingroom.firetv",
+                "com.amazon.imdb.tv.android.app",
+                "com.onemainstream.sonyliv.android"));
     }
 
     static Set<String> readPackages(Context context, String filename) {
-        Set<String> hidden = new HashSet<>();
+        return readPackages(context, filename, java.util.Collections.emptyList());
+    }
+
+    private static Set<String> readPackages(Context context, String filename,
+            java.util.List<String> fallback) {
+        Set<String> packages = new HashSet<>();
         try (BufferedReader config = new BufferedReader(new InputStreamReader(
                 context.getAssets().open(filename), StandardCharsets.UTF_8))) {
             for (String line = config.readLine(); line != null; line = config.readLine()) {
                 String name = line.trim();
-                if (!name.isEmpty() && !name.startsWith("#")) hidden.add(name);
+                if (!name.isEmpty() && !name.startsWith("#")) packages.add(name);
             }
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
             Log.w("FamilyTV", "Could not read " + filename, e);
+            packages.addAll(fallback);
         }
-        return hidden;
+        return packages;
     }
-
-
 
     static Map<String, Entry> list(Context context) {
         PackageManager packages = context.getPackageManager();

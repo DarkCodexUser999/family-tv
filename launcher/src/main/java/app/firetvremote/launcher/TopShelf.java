@@ -2,7 +2,6 @@ package app.firetvremote.launcher;
 
 import android.content.Context;
 import android.graphics.*;
-import android.os.Environment;
 import android.util.LruCache;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -45,17 +44,8 @@ final class TopShelf extends FrameLayout {
     }
 
     void prepare(String pkg, Bitmap icon, int color) {
-        File overrides = new File(Environment.getExternalStorageDirectory(), "FamilyTV/backdrops");
-        try {
-            overrides.mkdirs();
-            File readme = new File(overrides, "README.txt");
-            if (!readme.exists()) try (FileOutputStream out = new FileOutputStream(readme)) {
-                out.write(("Family TV offline backdrops\nUse <package>.jpg or <package>.png, e.g. com.amazon.firetv.youtube.jpg.\nRecommended: 640 x 240. Pictures are center-cropped. Restart Family TV after changes.\nJPG wins when both exist. Remove the file to restore generated artwork.\n").getBytes("UTF-8"));
-            }
-        } catch (IOException | SecurityException e) { android.util.Log.w("FamilyTV", "Backdrop directory unavailable", e); }
-        File source = new File(overrides, pkg + ".jpg");
-        if (!source.isFile()) source = new File(overrides, pkg + ".png");
-        if (!source.isFile()) {
+        File source = ArtworkFiles.backdrop(pkg);
+        if (source == null) {
             int fingerprint = color;
             for (int y = 0; y < icon.getHeight(); y += 4) for (int x = 0; x < icon.getWidth(); x += 4) {
                 fingerprint = 31 * fingerprint + icon.getPixel(x, y);
@@ -106,13 +96,7 @@ final class TopShelf extends FrameLayout {
         if (hit != null) return hit;
         File file = sources.get(pkg);
         if (file == null) return null;
-        BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inJustDecodeBounds = true; BitmapFactory.decodeFile(file.toString(), opts);
-        opts.inSampleSize = 1;
-        while (opts.outWidth / (opts.inSampleSize * 2) >= 640
-                || opts.outHeight / (opts.inSampleSize * 2) >= 240) opts.inSampleSize *= 2;
-        opts.inJustDecodeBounds = false; opts.inPreferredConfig = Bitmap.Config.RGB_565;
-        Bitmap decoded = BitmapFactory.decodeFile(file.toString(), opts);
+        Bitmap decoded = ArtworkFiles.decode(file, 640, 240, Bitmap.Config.RGB_565);
         if (decoded == null) return null;
         Bitmap result = Bitmap.createBitmap(640, 240, Bitmap.Config.RGB_565);
         float scale = Math.max(640f/decoded.getWidth(), 240f/decoded.getHeight());
@@ -149,7 +133,7 @@ final class TopShelf extends FrameLayout {
             Bitmap art = load(pkg);
             if (closed || suspended || !pkg.equals(requested)) return;
             post(() -> {
-                if (closed || suspended || !pkg.equals(requested) || art == null) return;
+                if (closed || suspended || !pkg.equals(requested)) return;
                 displayed = pkg;
                 image.setImageBitmap(art); image.setAlpha(1f);
                 android.util.Log.i("FamilyTV", "Backdrop " + pkg + " 640x240 RGB_565");
