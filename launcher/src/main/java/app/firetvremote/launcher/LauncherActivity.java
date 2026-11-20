@@ -19,10 +19,6 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.NetworkInterface;
-import java.util.Enumeration;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -90,8 +86,6 @@ public final class LauncherActivity extends Activity {
         }
         launchDispatched = false;
     };
-    private RemoteServer remote;
-    private int remoteSession;
     private AlertDialog remoteDialog;
     private final android.os.Handler pairUi=new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable pairExpiry=() -> { if(remoteDialog!=null) remoteDialog.dismiss(); };
@@ -634,12 +628,7 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onStop() {
         if(app.firetvremote.launcher.lan.LanService.notice==pairNotice) app.firetvremote.launcher.lan.LanService.notice=null;
-        remoteSession++;
         if (remoteDialog != null) remoteDialog.dismiss();
-        if (remote != null) {
-            remote.close();
-            remote = null;
-        }
         super.onStop();
     }
 
@@ -728,52 +717,10 @@ public final class LauncherActivity extends Activity {
         dialog.show();
     }
 
-    private void showPairing() {
-        if (remote == null) return;
-        RemoteServer server = remote;
-        String code = server.startPairing().replaceAll("(.{4})(?!$)", "$1 ");
-        String address = localAddress();
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Pair a phone")
-                .setMessage("TV address: " + address + "\nPairing code: " + code
-                        + "\n\nEnter both in Family TV Remote within two minutes.")
-                .setNegativeButton("Cancel", null).create();
-        remoteDialog = dialog;
-        dialog.setOnDismissListener(ignored -> {
-            server.stopPairing();
-            if (remoteDialog == dialog) remoteDialog = null;
-        });
-        dialog.show();
-    }
-
-    private String localAddress() {
-        try {
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                Enumeration<java.net.InetAddress> addresses = interfaces.nextElement().getInetAddresses();
-                while (addresses.hasMoreElements()) {
-                    java.net.InetAddress address = addresses.nextElement();
-                    if (address instanceof Inet4Address && address.isSiteLocalAddress()) {
-                        return address.getHostAddress();
-                    }
-                }
-            }
-        } catch (IOException ignored) {}
-        return "See Fire TV Settings › About › Network";
-    }
-
-    private void handleRemote(String action) {
-        if (remote == null) return;
-        handleFamilyAction(action);
-    }
     private void handleFamilyAction(String action) {
         if ("HOME".equals(action)) {
             if (remoteDialog != null) remoteDialog.dismiss();
             focusFirstFavorite();
-            return;
-        }
-        if ("AMAZON".equals(action)) {
-            openIntent("Amazon Home", new Intent(Intent.ACTION_MAIN)
-                    .addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             return;
         }
         if ("OPTIONS".equals(action)) {

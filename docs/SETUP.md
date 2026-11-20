@@ -90,7 +90,7 @@ The example contains placeholders, not working credentials. Pairing returns a de
 
 Discovery uses `_familytv._tcp.` and the actual ephemeral HTTPS port, with no advertised secrets. If unavailable, manually enter the address shown on TV. Switching access OFF stops the service/listener and requests discovery removal. Physical Fire OS discovery/TLS/shutdown acceptance is pending.
 
-There is no Flutter app, working WebSocket connection, remote pad or app/control endpoint yet. The old native APK remains buildable but cannot control this transport; its TCP autostart stays disabled and legacy pairing data remains untouched. See [Day 3 implementation review](DAY_3_REVIEW.md) for tests and limits. Source is published; physical-device acceptance remains pending.
+The Flutter remote uses authenticated HTTPS/WSS for foreground navigation. The legacy native phone APK remains buildable. Family TV settings can erase its saved pairings with **Forget legacy phones**. See the [companion implementation review](DAY_5_REVIEW.md) for tests and physical-device acceptance.
 
 ## 5. Configure and verify
 
@@ -136,7 +136,7 @@ Neither command uninstalls streaming apps. The phone companion can be removed th
 | App asks for login | The installed app's own account state; launcher does not supply credentials |
 | BACK stays inside app | App-specific navigation; universal interception is not implemented |
 | HOME opens Amazon Home | Expected on the tested firmware |
-| Legacy phone cannot connect | Expected: legacy TCP autostart is disabled; use the Flutter HTTPS/WSS candidate for Family TV only |
+| Legacy phone cannot connect | Use the Flutter HTTPS/WSS companion. The launcher no longer hosts the legacy TCP server. |
 | APK signature mismatch | Use the original private signing key; do not clear data as a shortcut |
 
 ## Remote build toolchain — Day 1

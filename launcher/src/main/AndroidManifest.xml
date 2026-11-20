@@ -9,10 +9,6 @@
         <intent>
             <action android:name="android.settings.SETTINGS" />
         </intent>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.HOME" />
-        </intent>
         <package android:name="com.netflix.ninja" />
         <package android:name="com.amazon.avod" />
         <package android:name="com.amazon.firebat" />

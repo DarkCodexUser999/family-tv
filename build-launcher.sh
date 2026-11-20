@@ -54,7 +54,9 @@ if [ "$module" = launcher ]; then
     classpath="$classpath:$repo_dir/launcher/libs/nanohttpd-2.3.1.jar"
 fi
 find "$source_dir/java" -name '*.java' ! -name '._*' > "$build_dir/sources.list"
-printf '%s\n' "$repo_dir/shared/src/main/java/app/firetvremote/Link.java" >> "$build_dir/sources.list"
+if [ "$module" = remote ]; then
+    printf '%s\n' "$repo_dir/shared/src/main/java/app/firetvremote/Link.java" >> "$build_dir/sources.list"
+fi
 # javac argfiles require quoting when the checkout has spaces.
 python3 - "$build_dir/sources.list" <<'PYARG'
 import sys,json

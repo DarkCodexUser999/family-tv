@@ -26,11 +26,11 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 - Supports local tile and backdrop overrides, with generated artwork as a fallback.
 - Hides unwanted tiles through an editable asset list without uninstalling their packages.
 - Supports per-app task flags rather than forcing one launch strategy on every app.
-- Includes legacy Android companion source and Flutter Android/iOS source; Day 5 local candidate adds a foreground-only pad. Legacy TCP autostart is disabled.
+- Includes legacy Android companion source and Flutter Android/iOS source; Day 5 local candidate adds a foreground-only pad. The TV accepts only the opt-in HTTPS/WSS companion.
 
 ## What it does not promise
 
-- HOME interception did **not** activate on the tested Fire OS build. The experimental service remains in source but is not enabled by the normal install steps.
+- The physical HOME button opens Amazon Home. The launcher has no accessibility service. Restore can still clean up earlier experimental installs.
 - BACK is controlled partly by the launched app. A single press does not consistently return to Family TV.
 - The optional in-process server supports pairing and, in the Day 5 candidate, foreground-only semantic controls. It cannot navigate Netflix, YouTube or other apps system-wide.
 - Volume/mute buttons are disabled. TV power and IR volume control are not implemented.

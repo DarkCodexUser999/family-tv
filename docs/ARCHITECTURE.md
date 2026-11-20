@@ -82,7 +82,7 @@ Private LAN is not a trust boundary: pin TLS, compare token hashes safely, bound
 
 ## Migration and validation
 
-Days 1–7 add a versioned opt-in transport alongside the legacy implementation without altering launch routes. The new setting must not start the old TCP server as an accidental bypass; disable legacy autostart when the new opt-in path is introduced, document old remote incompatibility and retain code until acceptance. Back up/recover runtime configuration; never automatically erase existing phone pairings or app data. Current HomeService stays unused; v1 depends on no accessibility grant.
+The launcher hosts the opt-in HTTPS/WSS transport. The native phone project keeps the old TCP client for reference. Its saved pairings are removed only by the explicit legacy-forget option or uninstall. The restore script recognizes the historical HOME service on older installations.
 
 Use protocol fixtures, JVM/host tests, Flutter unit/widget tests and analyzer before pushes once `/mobile` exists. CI builds launcher/API 22 and Flutter Android, then a macOS iOS simulator build when capacity is available. Mock bridge/phone demos validate logic but cannot establish Fire OS latency, NSD/TLS behavior or memory. No physical TV/iPhone is currently available; track these as pending gates and withhold a stable v1.0 release if essential acceptance cannot run. iOS simulator testing does not prove physical LAN discovery, and App Store/TestFlight distribution requires signing/account decisions beyond a free local simulator build.
 
