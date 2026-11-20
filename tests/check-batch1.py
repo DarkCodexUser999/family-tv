@@ -84,10 +84,23 @@ shelf_harness = r'''package app.firetvremote.launcher;import android.graphics.Bi
 public class ShelfHarness{
  boolean closed,suspended;String requested="bad",displayed="old";Future<?> pending;final List<String> order=new ArrayList<>();
  final ExecutorService worker=Executors.newSingleThreadExecutor();final Image image=new Image();
- static class Image{Bitmap value=new Bitmap();void setImageBitmap(Bitmap b){value=b;}void setAlpha(float a){}}
- Bitmap load(String pkg){return null;}void post(Runnable r){r.run();}
- public static void main(String[] args)throws Exception{ShelfHarness h=new ShelfHarness();try{h.showNow("bad");h.pending.get(2,TimeUnit.SECONDS);if(h.image.value!=null||!"bad".equals(h.displayed))throw new AssertionError();System.out.println("PASS: executable production shelf completion clears stale image on failed read (host fakes)");}finally{h.worker.shutdownNow();}}
-''' + method('private void showNow(', (base/'TopShelf.java').read_text()) + '\n}'
+ static class Image{Bitmap value=new Bitmap();void setImageBitmap(Bitmap b){value=b;}float getAlpha(){return 1;}void setAlpha(float a){}}
+ final Map<String,Bitmap> cache=new HashMap<>(); Object trace;void invalidate(){}
+ final BlockingQueue<Runnable> ui=new LinkedBlockingQueue<>();
+ final List<String> loads=Collections.synchronizedList(new ArrayList<>());
+ final CountDownLatch started=new CountDownLatch(1), release=new CountDownLatch(1);
+ Bitmap load(String pkg){loads.add(pkg);if(pkg.equals("slow")){started.countDown();try{release.await();}catch(InterruptedException e){throw new AssertionError(e);}}return null;}
+ void post(Runnable r){ui.add(r);}
+ void complete()throws Exception{Runnable r=ui.poll(2,TimeUnit.SECONDS);if(r==null)throw new AssertionError("missing completion");r.run();}
+ public static void main(String[] args)throws Exception{ShelfHarness h=new ShelfHarness();try{h.showNow("bad");h.pending.get(2,TimeUnit.SECONDS);h.complete();if(h.image.value!=null||!"bad".equals(h.displayed))throw new AssertionError();
+ h.showNow(h.requested="slow");if(!h.started.await(2,TimeUnit.SECONDS))throw new AssertionError();
+ h.showNow(h.requested="skipped");h.showNow(h.requested="newest");
+ h.release.countDown();h.complete();h.complete();
+ if(!h.loads.equals(Arrays.asList("bad","slow","newest"))||!"newest".equals(h.displayed))throw new AssertionError();
+ Bitmap warm=new Bitmap();h.cache.put("warm",warm);h.showNow(h.requested="warm");
+ if(h.image.value!=warm||h.pending!=null)throw new AssertionError();
+ System.out.println("PASS: shelf failure clears stale art; latest-only blocked decode and immediate cache hit");}finally{h.release.countDown();h.worker.shutdownNow();}}
+''' + method('private void showNow(', (base/'TopShelf.java').read_text()) + method('private void present(', (base/'TopShelf.java').read_text()) + '\n}'
 (build/'ShelfHarness.java').write_text(shelf_harness)
 java=Path(os.environ['JAVA_HOME'])/'bin'
 sources=[p for p in build.rglob('*.java') if not p.name.startswith('._')]+[base/(n+'.java') for n in ['LaunchRoute','AppCatalog','ArtworkFiles']]+[root/'tests/LaunchRouteTest.java']

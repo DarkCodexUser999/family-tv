@@ -16,7 +16,7 @@ Asset edits require rebuilding and reinstalling the launcher. They are not live 
 
 Only installed, launchable, non-hidden packages are displayed. Empty rows are omitted. Unlisted apps enter the last row; unlisted apps whose display label contains ZEE5/discovery are routed to the second configured row. Generic video-app classification is not implemented. Package identifiers can vary between distributions: inspect the installed package before adding it. About six tiles per row is a design target, not a hard limit.
 
-Rows after the first create their full interactive controls on first navigation. Before that, a lightweight, non-focusable preview draws the existing tile bitmaps at half opacity. About the top quarter of the next row is visible below the focused row. Earlier rows fade away to keep the upper screen for artwork. Once a row is built, its real controls supply the preview instead, avoiding duplicate artwork. TV visual/performance verification of this update is pending.
+The launcher builds up to five initial controls. During idle time it prepares one additional control per slice around each row’s selection and removes offscreen controls beyond that window. A lightweight preview draws the next row until controls replace it. Rapid input can target a column before its control exists. The pending selection follows subsequent presses and OK applies to its selected tile.
 
 ## Hidden tiles
 
@@ -48,6 +48,6 @@ The tested output is 1920×1080 at 320 dpi, which is distinct from a television'
 
 Moving DOWN or UP returns to the last selected tile in that row for the current launcher session. The first visit uses the source row's selected column, clamped for a shorter destination row. Focus is remembered as an integer per row without disk writes on direction presses.
 
-The existing last-app preference also restores an app in a lazy lower row after launcher recreation: Family TV locates the saved key and creates that row before requesting focus. If the app was removed, hidden or no longer appears in the catalog, focus falls back to the first available Favorite as before. Per-row history resets on recreation; the single last-app key remains persisted. Device verification is pending.
+The existing last-app preference also restores an app in a lazy lower row after launcher recreation: Family TV locates the saved key and prepares the saved control before requesting focus. If the app was removed, hidden or no longer appears in the catalog, focus falls back to the first available Favorite as before. Per-row history resets on recreation; the single last-app key remains persisted. Device verification is pending.
 
 The gear and MENU open Family TV options. Choose **Fire TV Settings** to leave the launcher for system settings. If installed-app discovery fails, the same menu offers **Retry loading apps**.

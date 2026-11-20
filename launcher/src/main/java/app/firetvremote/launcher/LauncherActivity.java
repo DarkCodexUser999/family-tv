@@ -16,10 +16,8 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.io.IOException;
@@ -47,7 +45,19 @@ public final class LauncherActivity extends Activity {
     private TopShelf backdrop;
     private FrameLayout scene;
     private FrameLayout rows;
-    private final Map<LinearLayout, FrameLayout> trays = new LinkedHashMap<>();
+    private FrameLayout[] trays;
+    private int wantedRow = -1, wantedColumn;
+    private boolean preparationPosted;
+    private String confirmKey;
+    private boolean confirmReleased;
+    private boolean animateArrival;
+    private final android.os.MessageQueue.IdleHandler idle = () -> {
+        preparationPosted = false;
+        if (!isSettingsLaunchPaused && !isDestroyed() && prepareOne()) schedulePreparation();
+        return false;
+    };
+    private final Runnable armIdle = () -> android.os.Looper.myQueue().addIdleHandler(idle);
+
     private float uiScale;
     private int activeRow;
     private RowFocusMemory rowFocus;
@@ -55,12 +65,10 @@ public final class LauncherActivity extends Activity {
     private long lastNavigationDown = -1;
     private View[] rowPreviews;
     private final List<List<TileData>> rowData = new ArrayList<>();
-    private final List<List<Button>> rowButtons = new ArrayList<>();
-    private final Map<LinearLayout,Integer> rowIndices = new LinkedHashMap<>();
-    private final android.view.animation.Interpolator rowEase = new DecelerateInterpolator();
 
     private static final class TileData {
         String key, label, pkg;
+        Button button;
         Bitmap icon;
         int color;
         Runnable launch;
@@ -99,7 +107,10 @@ public final class LauncherActivity extends Activity {
         uiScale = metrics.widthPixels / 1920f;
         scene = new FrameLayout(this);
         scene.setBackgroundColor(0xff050609);
-        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) trace = new FocusTrace();
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            trace = new FocusTrace();
+            animateArrival = getIntent().getBooleanExtra("short-focus-transform", false);
+        }
         backdrop = new TopShelf(this);
         backdrop.trace = trace;
         scene.addView(backdrop, new FrameLayout.LayoutParams(-1, px(760)));
@@ -247,14 +258,22 @@ public final class LauncherActivity extends Activity {
         }
         rowFocus = new RowFocusMemory(keys);
         rowPreviews = new View[rowData.size()];
-        for(int i=0;i<rowData.size();i++) {
-            rowButtons.add(null);
-            if (i > 0) {
-                rowPreviews[i] = createRowPreview(i);
-                rows.addView(rowPreviews[i], rowPosition(i));
+        trays = new FrameLayout[rowData.size()];
+        for (int row = 0; row < trays.length; row++) {
+            FrameLayout tray = new FrameLayout(this);
+            trays[row] = tray;
+            tray.setBackground(traySurface(0xff506e9a));
+            tray.setAlpha(RowPresentation.alpha(row, 0));
+            rows.addView(tray, rowPosition(row));
+            if (row > 0) {
+                rowPreviews[row] = createRowPreview(row);
+                rows.addView(rowPreviews[row], rowPosition(row));
             }
         }
-        List<Button> upper = rowData.isEmpty() ? java.util.Collections.emptyList() : ensureRow(0);
+        if (trays.length > 0) {
+            for (int col = 0; col < Math.min(5, rowData.get(0).size()); col++) attachTile(0, col);
+            firstFavorite = rowData.get(0).get(0).button;
+        }
         android.widget.TextClock clock = new android.widget.TextClock(this);
         clock.setFormat12Hour("h:mm"); clock.setFormat24Hour("HH:mm");
         clock.setTextColor(PRIMARY_TEXT); clock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px(72));
@@ -279,10 +298,9 @@ public final class LauncherActivity extends Activity {
         gear.setOnClickListener(v -> showOptions());
         FrameLayout.LayoutParams gp = new FrameLayout.LayoutParams(px(96), px(96), Gravity.TOP | Gravity.RIGHT);
         gp.topMargin = px(54); gp.rightMargin = px(96); scene.addView(gear, gp);
-        if (!upper.isEmpty()) {
-            firstFavorite = upper.get(0);
+        if (firstFavorite != null) {
+            schedulePreparation();
             gear.setNextFocusDownId(firstFavorite.getId());
-            for (Button button : upper) button.setNextFocusUpId(gear.getId());
         } else {
             TextView empty = new TextView(this);
             empty.setText(catalogFailed ? "Couldn’t load apps. Open Settings to retry."
@@ -298,42 +316,155 @@ public final class LauncherActivity extends Activity {
         Log.i(LOG_TAG, "UI tile=" + px(365) + "x" + px(205) + " gap=" + px(58));
     }
 
-    private List<Button> ensureRow(int index) {
-        List<Button> buttons=rowButtons.get(index);
-        if(buttons==null) {
-            if (rowPreviews[index] != null) rowPreviews[index].setAlpha(0f);
-            buttons=addTray(rowData.get(index),index);
-            rowButtons.set(index,buttons);
+    private void schedulePreparation() {
+        if (preparationPosted || isSettingsLaunchPaused || isDestroyed()) return;
+        preparationPosted = true;
+        scene.postOnAnimation(armIdle);
+    }
+
+    private void attachTile(int row, int column) {
+        TileData tile = rowData.get(row).get(column);
+        BitmapDrawable art = new BitmapDrawable(getResources(), tile.icon);
+        art.setBounds(0, 0, tile.icon.getWidth(), tile.icon.getHeight());
+        tile.button = addShortcut(row, column, tile.key, tile.label, art, tile.launch);
+        tile.button.setTag(column);
+        positionTile(row, column, tile.button);
+        FrameLayout.LayoutParams size = new FrameLayout.LayoutParams(px(365), px(205));
+        size.topMargin = px(32);
+        trays[row].addView(tile.button, size);
+    }
+
+    private void positionTile(int row, int column, Button button) {
+        int selected = rowFocus.selection(row, 0);
+        int count = rowData.get(row).size();
+        int offset = Math.min(Math.max(0, count * 423 + 30 - 1728), Math.max(0, (selected - 1) * 423));
+        float x = px(34 + column * 423 - offset);
+        if (button.getTranslationX() != x) button.setTranslationX(x);
+    }
+
+    // One new Button per idle slice. Keep only the viewport plus adjacent controls.
+    private boolean prepareOne() {
+        if (trays == null || trays.length == 0) return false;
+        if (wantedRow >= 0) {
+            int row = wantedRow, col = wantedColumn;
+            TileData tile = rowData.get(row).get(col);
+            int start = windowStart(col, rowData.get(row).size());
+            pruneRow(row, start, start + 7);
+            if (tile.button == null) attachTile(row, col);
+            wantedRow = -1;
+            retirePreview(row);
+            tile.button.requestFocus();
+            if (confirmReleased && tile.key.equals(confirmKey) && tile.button.isFocused()) {
+                confirmKey = null;
+                tile.button.performClick();
+            }
+            return true;
         }
-        return buttons;
+        for (int pass = 0; pass < trays.length; pass++) {
+            int row = (activeRow + pass) % trays.length;
+            List<TileData> data = rowData.get(row);
+            int col = rowFocus.selection(row, 0);
+            int start = windowStart(col, data.size());
+            int end = Math.min(data.size(), start + 7);
+            pruneRow(row, start, end);
+            for (int i = start; i < end; i++) {
+                if (data.get(i).button == null) {
+                    attachTile(row, i);
+                    return true;
+                }
+            }
+            retirePreview(row);
+        }
+        return false;
+    }
+
+    private static int windowStart(int column, int size) {
+        return Math.max(0, Math.min(column - 2, size - 7));
+    }
+
+    private void pruneRow(int row, int start, int end) {
+        FrameLayout tray = trays[row];
+        List<TileData> data = rowData.get(row);
+        for (int i = tray.getChildCount() - 1; i >= 0; i--) {
+            Button button = (Button)tray.getChildAt(i);
+            int index = (Integer)button.getTag();
+            if ((index < start || index >= end) && !button.isFocused()
+                    && button != firstFavorite && button != pendingTile) {
+                tray.removeViewAt(i);
+                TileData tile = data.get(index);
+                tile.button = null;
+                focusTargets.remove(tile.key);
+            }
+        }
+    }
+
+    private void retirePreview(int row) {
+        if (rowPreviews[row] != null) {
+            rows.removeView(rowPreviews[row]);
+            rowPreviews[row] = null;
+        }
+    }
+
+    private void select(int row, int col) {
+        Button target = rowData.get(row).get(col).button;
+        wantedRow = -1;
+        if (target != null) target.requestFocus();
+        else {
+            wantedRow = row;
+            wantedColumn = col;
+        }
+        schedulePreparation();
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         int key = event.getKeyCode();
-        boolean direction = key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT
-                || key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN;
-        boolean previous = fastNavigation;
-        if (direction && event.getAction() == KeyEvent.ACTION_DOWN) {
-            if (trace != null) trace.down(event);
-            long now = event.getEventTime();
-            fastNavigation = NavigationTiming.isRapid(lastNavigationDown, now, event.getRepeatCount());
-            lastNavigationDown = now;
-        }
-        try { return super.dispatchKeyEvent(event); }
-        finally { fastNavigation = previous; }
-    }
-
-    @Override public boolean onKeyDown(int key, KeyEvent event) {
-        if ((key==KeyEvent.KEYCODE_DPAD_DOWN || key==KeyEvent.KEYCODE_DPAD_UP) && focusTargets.containsValue(getCurrentFocus())) {
-            int next=activeRow+(key==KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
-            if(next>=0 && next<rowData.size()) {
-                List<Button> buttons=ensureRow(next);
-                int column = rowFocus.selection(next, rowFocus.selection(activeRow, 0));
-                if (column >= 0) buttons.get(column).requestFocus();
+        boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+        if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER) {
+            if (wantedRow >= 0 || confirmKey != null) {
+                if (down && event.getRepeatCount() == 0 && wantedRow >= 0) {
+                    confirmKey = rowData.get(wantedRow).get(wantedColumn).key;
+                    confirmReleased = false;
+                } else if (!down && confirmKey != null) {
+                    confirmReleased = !event.isCanceled();
+                    if (wantedRow < 0 && confirmReleased && confirmKey.equals(focusedKey))
+                        getCurrentFocus().performClick();
+                    if (wantedRow < 0 || !confirmReleased) confirmKey = null;
+                }
                 return true;
             }
         }
-        return super.onKeyDown(key,event);
+        if (gear != null && gear.isFocused() && down && key == KeyEvent.KEYCODE_DPAD_DOWN
+                && firstFavorite != null) {
+            focusFirstFavorite();
+            return true;
+        }
+        if (!down || rowFocus == null || !(getCurrentFocus() instanceof TileButton))
+            return super.dispatchKeyEvent(event);
+        int row = wantedRow >= 0 ? wantedRow : activeRow;
+        int col = wantedRow >= 0 ? wantedColumn : rowFocus.selection(row, 0);
+        switch (key) {
+            case KeyEvent.KEYCODE_DPAD_LEFT: col = Math.max(0, col - 1); break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT: col = Math.min(rowData.get(row).size() - 1, col + 1); break;
+            case KeyEvent.KEYCODE_DPAD_UP:
+                if (row == 0) {
+                    wantedRow = -1;
+                    confirmKey = null;
+                    gear.requestFocus();
+                    return true;
+                }
+                col = rowFocus.selection(--row, col); break;
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                if (row + 1 >= trays.length) return true;
+                col = rowFocus.selection(++row, col); break;
+            default: return super.dispatchKeyEvent(event);
+        }
+        confirmKey = null;
+        if (trace != null) trace.down(event);
+        fastNavigation = NavigationTiming.isRapid(lastNavigationDown, event.getEventTime(), event.getRepeatCount());
+        lastNavigationDown = event.getEventTime();
+        rowFocus.remember(row, col);
+        select(row, col);
+        return true;
     }
 
     private FrameLayout.LayoutParams rowPosition(int row) {
@@ -366,34 +497,6 @@ public final class LauncherActivity extends Activity {
         return preview;
     }
 
-    private List<Button> addTray(List<TileData> tiles, int rowIndex) {
-        FrameLayout tray = new FrameLayout(this);
-        tray.setClipChildren(true); tray.setClipToPadding(true);
-        tray.setAlpha(RowPresentation.alpha(rowIndex, activeRow));
-        rows.addView(tray, rowPosition(rowIndex));
-        LinearLayout strip = new LinearLayout(this);
-        strip.setClipChildren(false); strip.setClipToPadding(false);
-        strip.setPadding(px(34), px(32), px(34), px(32));
-        FrameLayout clip = new FrameLayout(this);
-        tray.addView(clip, new FrameLayout.LayoutParams(-1,-1));
-        clip.setPadding(1, 0, 1, 0);
-        clip.addView(strip, new FrameLayout.LayoutParams(px(tiles.size()*423+68), -1));
-        trays.put(strip, tray); rowIndices.put(strip,rowIndex);
-        List<Button> buttons = new ArrayList<>();
-        for (TileData tile : tiles) {
-            BitmapDrawable icon = new BitmapDrawable(getResources(), tile.icon);
-            icon.setBounds(0,0,tile.icon.getWidth(),tile.icon.getHeight());
-            buttons.add(addShortcut(strip, tile.key, tile.label, icon, tile.color, rowIndex == 0, tile.launch));
-        }
-        for (int i=0; i<buttons.size(); i++) {
-            Button button = buttons.get(i);
-            button.setNextFocusLeftId(buttons.get(Math.max(0,i-1)).getId());
-            button.setNextFocusRightId(buttons.get(Math.min(buttons.size()-1,i+1)).getId());
-        }
-        tray.setBackground(traySurface(0xff506e9a));
-        return buttons;
-    }
-
     private Drawable settingsSurface(boolean focused) {
         GradientDrawable shape = new GradientDrawable();
         shape.setColor(0xff202631);
@@ -408,39 +511,35 @@ public final class LauncherActivity extends Activity {
         panel.setCornerRadius(px(62)); panel.setStroke(px(1), 0x66ffffff); return panel;
     }
 
-    private void focusScene(LinearLayout strip, Button button, String pkg) {
-        int index = strip.indexOfChild(button);
-        int maxScroll = Math.max(0, strip.getChildCount()*px(423) + px(30) - px(1728));
-        int offset = Math.min(maxScroll, Math.max(0, index*px(423)-px(423)));
-        strip.animate().cancel();
-        if (fastNavigation) strip.setTranslationX(-offset);
-        else if (strip.getTranslationX() != -offset) {
-            strip.animate().translationX(-offset).setDuration(100).setInterpolator(rowEase).start();
+    private void focusScene(int row, int column, String pkg) {
+        rowFocus.remember(row, column);
+        if (rowPreviews[row] != null) rowPreviews[row].setVisibility(View.INVISIBLE);
+        FrameLayout tray = trays[row];
+        for (int i = 0; i < tray.getChildCount(); i++) {
+            Button tile = (Button)tray.getChildAt(i);
+            positionTile(row, (Integer)tile.getTag(), tile);
         }
-        int row = rowIndices.get(strip);
-        rowFocus.remember(row, index);
-        // Horizontal movement does not alter row visibility: avoid redundant fades.
         if (activeRow != row) {
             activeRow = row;
-            rows.animate().cancel();
-            float target = px(RowPresentation.translation(row));
-            if (fastNavigation) rows.setTranslationY(target);
-            else rows.animate().translationY(target).setDuration(100).setInterpolator(rowEase).start();
-            for(Map.Entry<LinearLayout,FrameLayout> item:trays.entrySet()) {
-                setRowAlpha(item.getValue(), RowPresentation.alpha(rowIndices.get(item.getKey()), row));
-            }
-            for (int r = 1; r < rowPreviews.length; r++) {
-                setRowAlpha(rowPreviews[r], rowButtons.get(r) == null
-                        ? RowPresentation.alpha(r, row) : 0f);
+            rows.setTranslationY(px(RowPresentation.translation(row)));
+            for (int i = 0; i < trays.length; i++) {
+                float alpha = RowPresentation.alpha(i, row);
+                if (trays[i].getAlpha() != alpha) trays[i].setAlpha(alpha);
+                View preview = rowPreviews[i];
+                if (preview != null && preview.getAlpha() != alpha) preview.setAlpha(alpha);
             }
         }
         backdrop.show(pkg);
+        schedulePreparation();
     }
 
-    private void setRowAlpha(View view, float target) {
-        view.animate().cancel();
-        if (fastNavigation) view.setAlpha(target);
-        else if (view.getAlpha() != target) view.animate().alpha(target).setDuration(100).start();
+    private void focusFirstFavorite() {
+        wantedRow = -1;
+        confirmKey = null;
+        if (firstFavorite != null) {
+            rowFocus.remember(0, 0);
+            firstFavorite.requestFocus();
+        }
     }
 
     private void restoreFocus(String key) {
@@ -449,16 +548,26 @@ public final class LauncherActivity extends Activity {
         if (target == null && rowFocus != null) {
             int row = rowFocus.rowOf(key);
             if (row >= 0) {
-                ensureRow(row);
-                target = focusTargets.get(key);
+                List<TileData> data = rowData.get(row);
+                for (int col = 0; col < data.size(); col++) {
+                    if (key.equals(data.get(col).key)) {
+                        select(row, col);
+                        return;
+                    }
+                }
             }
         }
-        if (target == null || !target.requestFocus()) { if (firstFavorite != null) firstFavorite.requestFocus(); }
+        if (target == null || !target.requestFocus()) focusFirstFavorite();
     }
 
     @Override
     protected void onPause() {
         isSettingsLaunchPaused = true;
+        wantedRow = -1;
+        confirmKey = null;
+        scene.removeCallbacks(armIdle);
+        android.os.Looper.myQueue().removeIdleHandler(idle);
+        preparationPosted = false;
         settingsOpening = false;
         scene.removeCallbacks(launchSettings);
         app.firetvremote.launcher.lan.LauncherBridge.SHARED.pause(lanUi);
@@ -476,6 +585,7 @@ public final class LauncherActivity extends Activity {
         super.onResume();
         isSettingsLaunchPaused = false;
         backdrop.resume();
+        schedulePreparation();
         if (launchDispatched) clearPending();
         if (focusOnReturn != null && getCurrentFocus() != focusTargets.get(focusOnReturn)) {
             restoreFocus(focusOnReturn);
@@ -488,7 +598,7 @@ public final class LauncherActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (remoteDialog != null) remoteDialog.dismiss();
-        else if (firstFavorite != null) firstFavorite.requestFocus();
+        else focusFirstFavorite();
     }
 
     @Override
@@ -555,6 +665,8 @@ public final class LauncherActivity extends Activity {
     };
     private void showOptions() {
         if (remoteDialog != null) return;
+        wantedRow = -1;
+        confirmKey = null;
         boolean enabled = app.firetvremote.launcher.lan.LanService.enabled(this);
         List<String> options = new ArrayList<>(java.util.Arrays.asList("Remote access: " + (enabled ? "ON" : "OFF"),
                         "Remote connection details", "Pair a phone", "Revoke all phone access", "Forget legacy phones",
@@ -633,7 +745,7 @@ public final class LauncherActivity extends Activity {
     private void handleFamilyAction(String action) {
         if ("HOME".equals(action)) {
             if (remoteDialog != null) remoteDialog.dismiss();
-            if (firstFavorite != null) firstFavorite.requestFocus();
+            focusFirstFavorite();
             return;
         }
         if ("AMAZON".equals(action)) {
@@ -654,7 +766,7 @@ public final class LauncherActivity extends Activity {
             case "OK": key = KeyEvent.KEYCODE_DPAD_CENTER; break;
             case "BACK":
                 if (remoteDialog != null) remoteDialog.dismiss();
-                else if (firstFavorite != null) firstFavorite.requestFocus();
+                else focusFirstFavorite();
                 return;
             default: return;
         }
@@ -669,8 +781,7 @@ public final class LauncherActivity extends Activity {
         }
     }
 
-    private Button addShortcut(LinearLayout row, String key, String label, Drawable icon, int color,
-                               boolean featured, Runnable onSelect) {
+    private Button addShortcut(int row, int column, String key, String label, Drawable icon, Runnable onSelect) {
         Button button = new TileButton(this, icon, px(40), px(4));
         button.setId(View.generateViewId());
         button.setAllCaps(false);
@@ -692,20 +803,21 @@ public final class LauncherActivity extends Activity {
         button.setAlpha(.85f);
         button.setElevation(0);
         tileButton.setOnFocusChangeListener((view, focused) -> {
-            tileButton.setAlpha(focused ? 1f : .8f);
-            float scale = focused ? 1.08f : 1f;
-            tileButton.animate().cancel();
-            if (fastNavigation) {
-                tileButton.setScaleX(scale); tileButton.setScaleY(scale);
+            float alpha = focused ? 1f : .85f;
+            if (tileButton.getAlpha() != alpha) tileButton.setAlpha(alpha);
+            float scale = focused ? 1.05f : 1f;
+            if (animateArrival) tileButton.animate().cancel();
+            if (focused && animateArrival && !fastNavigation) {
+                tileButton.animate().scaleX(scale).scaleY(scale).setDuration(60).start();
             } else {
-                tileButton.animate().scaleX(scale).scaleY(scale)
-                        .setInterpolator(rowEase).setDuration(100).start();
+                if (tileButton.getScaleX() != scale) tileButton.setScaleX(scale);
+                if (tileButton.getScaleY() != scale) tileButton.setScaleY(scale);
             }
             if (focused) {
                 if (trace != null) trace.select(artworkPackage);
                 focusedKey = key;
                 app.firetvremote.launcher.lan.LauncherBridge.SHARED.focus(artworkPackage);
-                focusScene(row, tileButton, artworkPackage);
+                focusScene(row, column, artworkPackage);
             }
         });
         // Allow one frame for pressed/loading feedback, then dispatch after traversal.
@@ -735,9 +847,6 @@ public final class LauncherActivity extends Activity {
         });
         focusTargets.put(key, button);
 
-        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(px(365), px(205));
-        size.setMargins(0, 0, px(58), 0);
-        row.addView(button, size);
         return button;
     }
 

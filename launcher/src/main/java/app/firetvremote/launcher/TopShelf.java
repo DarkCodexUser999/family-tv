@@ -12,14 +12,15 @@ import java.util.concurrent.*;
 /** All artwork I/O, sampling and rasterization happens on the UI artwork worker. */
 final class TopShelf extends FrameLayout {
     FocusTrace trace;
+
     @Override protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
         if (trace != null) trace.draw(displayed, false);
     }
+
     final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final LruCache<String, Bitmap> cache = new LruCache<>(4);
     private final Map<String, File> sources = new HashMap<>();
-    private final List<String> order = new ArrayList<>();
     private final ImageView image;
     private volatile String requested;
     private volatile boolean closed;
@@ -61,7 +62,7 @@ final class TopShelf extends FrameLayout {
             try (DataInputStream in = new DataInputStream(new FileInputStream(stamp))) {
                 reusable = source.isFile() && source.length() > 0 && in.readInt() == fingerprint;
             } catch (IOException ignored) { }
-            if (reusable) { sources.put(pkg, source); order.add(pkg); return; }
+            if (reusable) { sources.put(pkg, source); return; }
             Bitmap art = Bitmap.createBitmap(640, 240, Bitmap.Config.RGB_565);
             Canvas canvas = new Canvas(art);
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
@@ -87,7 +88,7 @@ final class TopShelf extends FrameLayout {
             }
             art.recycle();
         }
-        sources.put(pkg, source); order.add(pkg);
+        sources.put(pkg, source);
     }
 
     static int mix(int a, int b, float t) {
@@ -111,46 +112,52 @@ final class TopShelf extends FrameLayout {
         decoded.recycle(); cache.put(pkg, result); return result;
     }
 
-    private String queued;
-    private final Runnable update = () -> showNow(queued);
+    private final Runnable update = () -> showNow(requested);
     void show(String pkg) {
         if (closed || pkg == null) return;
-        if (pkg.equals(queued) && !suspended && (pkg.equals(displayed) || pending != null && !pending.isDone())) return;
-        // Invalidate an old in-flight result immediately, before the settle delay.
         requested = pkg;
-        queued = pkg;
         removeCallbacks(update);
-        if (!suspended && !closed) postDelayed(update,150);
+        if (!suspended) postOnAnimation(update);
     }
+
     void suspend() {
         suspended = true;
         removeCallbacks(update);
-        if (pending != null) pending.cancel(false);
     }
+
     void resume() {
         suspended = false;
-        if (queued != null && !closed) show(queued);
+        if (requested != null && !closed) show(requested);
     }
+
+    // At most one decode in flight. New selections replace the desired key.
     private void showNow(String pkg) {
         if (closed || suspended || !pkg.equals(requested) || pkg.equals(displayed)) return;
-        if (pending != null) pending.cancel(false);
+        Bitmap hit = cache.get(pkg);
+        if (hit != null) {
+            present(pkg, hit);
+            return;
+        }
+        if (pending != null) return;
         pending = worker.submit(() -> {
-            Bitmap art = load(pkg);
-            if (closed || suspended || !pkg.equals(requested)) return;
+            boolean decode = pkg.equals(requested) && !suspended && !closed;
+            Bitmap art = decode ? load(pkg) : null;
             post(() -> {
-                if (closed || suspended || !pkg.equals(requested)) return;
-                displayed = pkg;
-                image.setImageBitmap(art); image.setAlpha(1f);
-                android.util.Log.i("FamilyTV", "Backdrop " + pkg + " 640x240 RGB_565");
+                pending = null;
+                if (closed || suspended) return;
+                if (decode && pkg.equals(requested)) present(pkg, art);
+                else showNow(requested);
             });
-            int index = order.indexOf(pkg);
-            for (int delta : new int[]{-1, 1}) {
-                if (closed || suspended || !pkg.equals(requested)) return;
-                int neighbour = index + delta;
-                if (neighbour >= 0 && neighbour < order.size()) load(order.get(neighbour));
-            }
         });
     }
+
+    private void present(String pkg, Bitmap art) {
+        displayed = pkg;
+        image.setImageBitmap(art);
+        if (image.getAlpha() != 1f) image.setAlpha(1f);
+        if (trace != null) invalidate();
+    }
+
     void close() {
         closed = true;
         suspend();
