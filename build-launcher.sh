@@ -27,9 +27,13 @@ test -s "$android_jar"
 sed "s/<manifest xmlns:android=/<manifest package=\"$package\" xmlns:android=/" \
     "$source_dir/AndroidManifest.xml" > "$build_dir/AndroidManifest.xml"
 
-set --
+if [ "$module" = launcher ] && [ "${FAMILYTV_FOCUS_DEBUG:-0}" = 1 ]; then
+    set -- --debug-mode
+else
+    set --
+fi
 if [ -d "$source_dir/assets" ]; then
-    set -- -A "$source_dir/assets"
+    set -- "$@" -A "$source_dir/assets"
 fi
 if [ -d "$source_dir/res" ]; then
     "$build_tools/aapt2" compile --dir "$source_dir/res" -o "$build_dir/resources.zip"

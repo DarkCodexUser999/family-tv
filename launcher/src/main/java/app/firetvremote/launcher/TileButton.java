@@ -9,6 +9,8 @@ import android.widget.Button;
 
 /** One control per tile; artwork is pre-rendered and the focus ring is allocation-free. */
 final class TileButton extends Button {
+    FocusTrace trace;
+    String pkg;
     private final Drawable artwork;
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF ringBounds = new RectF();
@@ -38,6 +40,9 @@ final class TileButton extends Button {
             canvas.restore();
         }
         super.onDraw(canvas);
-        if (isFocused()) canvas.drawRoundRect(ringBounds, radius, radius, ring);
+        if (isFocused()) {
+            canvas.drawRoundRect(ringBounds, radius, radius, ring);
+            if (trace != null) trace.draw(pkg, true);
+        }
     }
 }

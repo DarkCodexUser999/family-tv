@@ -43,6 +43,7 @@ public final class LauncherActivity extends Activity {
     private boolean isSettingsLaunchPaused;
     private boolean settingsOpening;
     private Button firstFavorite;
+    private FocusTrace trace;
     private TopShelf backdrop;
     private FrameLayout scene;
     private FrameLayout rows;
@@ -98,7 +99,9 @@ public final class LauncherActivity extends Activity {
         uiScale = metrics.widthPixels / 1920f;
         scene = new FrameLayout(this);
         scene.setBackgroundColor(0xff050609);
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) trace = new FocusTrace();
         backdrop = new TopShelf(this);
+        backdrop.trace = trace;
         scene.addView(backdrop, new FrameLayout.LayoutParams(-1, px(760)));
 
         setContentView(scene);
@@ -311,6 +314,7 @@ public final class LauncherActivity extends Activity {
                 || key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN;
         boolean previous = fastNavigation;
         if (direction && event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (trace != null) trace.down(event);
             long now = event.getEventTime();
             fastNavigation = NavigationTiming.isRapid(lastNavigationDown, now, event.getRepeatCount());
             lastNavigationDown = now;
@@ -680,6 +684,8 @@ public final class LauncherActivity extends Activity {
         final Button tileButton = button;
         final String artworkPackage = "favorite:browser".equals(key) ? "com.amazon.cloud9"
                 : key.substring(key.indexOf(':') + 1);
+        ((TileButton)button).trace = trace;
+        ((TileButton)button).pkg = artworkPackage;
         button.setBackground(null);
         button.setTextColor(PRIMARY_TEXT);
         button.setFocusable(true);
@@ -696,6 +702,7 @@ public final class LauncherActivity extends Activity {
                         .setInterpolator(rowEase).setDuration(100).start();
             }
             if (focused) {
+                if (trace != null) trace.select(artworkPackage);
                 focusedKey = key;
                 app.firetvremote.launcher.lan.LauncherBridge.SHARED.focus(artworkPackage);
                 focusScene(row, tileButton, artworkPackage);

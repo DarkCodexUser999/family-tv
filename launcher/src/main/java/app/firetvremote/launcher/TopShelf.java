@@ -11,6 +11,11 @@ import java.util.concurrent.*;
 
 /** All artwork I/O, sampling and rasterization happens on the UI artwork worker. */
 final class TopShelf extends FrameLayout {
+    FocusTrace trace;
+    @Override protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas);
+        if (trace != null) trace.draw(displayed, false);
+    }
     final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final LruCache<String, Bitmap> cache = new LruCache<>(4);
     private final Map<String, File> sources = new HashMap<>();
