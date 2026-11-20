@@ -5,6 +5,7 @@ public final class LauncherBridge {
     public static final LauncherBridge SHARED = new LauncherBridge();
     public interface Ui { void post(Runnable task); boolean perform(String action); }
     public interface Signal { void changed(); }
+    public volatile boolean tmdbConfigured;
     private volatile Ui ui;
     private volatile boolean busy;
     private volatile String focused;

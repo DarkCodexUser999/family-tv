@@ -11,7 +11,15 @@ import android.widget.Button;
 final class TileButton extends Button {
     FocusTrace trace;
     String pkg;
-    private final Drawable artwork;
+    private Drawable artwork;
+    boolean requestingArt;
+    boolean hasArt() { return artwork != null; }
+    void clearArt() { artwork = null; invalidate(); }
+    void setArt(android.graphics.Bitmap bitmap) {
+        artwork = new android.graphics.drawable.BitmapDrawable(getResources(), bitmap);
+        artwork.setBounds(0,0,bitmap.getWidth(),bitmap.getHeight());
+        invalidate();
+    }
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF ringBounds = new RectF();
     private final float radius;

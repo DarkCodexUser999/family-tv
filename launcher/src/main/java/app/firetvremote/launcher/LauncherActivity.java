@@ -8,7 +8,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -59,7 +58,8 @@ public final class LauncherActivity extends Activity {
     private final Runnable armIdle = () -> android.os.Looper.myQueue().addIdleHandler(idle);
 
     private float uiScale;
-    private int activeRow;
+    private volatile int activeRow;
+    private final Runnable refreshTiles = this::refreshVisibleTiles;
     private RowFocusMemory rowFocus;
     private boolean fastNavigation;
     private long lastNavigationDown = -1;
@@ -68,9 +68,8 @@ public final class LauncherActivity extends Activity {
 
     private static final class TileData {
         String key, label, pkg;
-        Button button;
-        Bitmap icon;
-        int color;
+        volatile Button button;
+        AppCatalog.Entry entry;
         Runnable launch;
     }
     private String focusedKey;
@@ -183,6 +182,7 @@ public final class LauncherActivity extends Activity {
     }
 
     private TileData safeTileData(String pkg, AppCatalog.Entry entry) {
+        if (backdrop.cancelled()) return null;
         try { return tileData("app:" + pkg, entry); }
         catch (RuntimeException error) {
             // A package can be removed/updated while the startup snapshot is being built.
@@ -195,43 +195,8 @@ public final class LauncherActivity extends Activity {
         TileData tile = new TileData();
         tile.key = key; tile.pkg = entry.info.activityInfo.packageName;
         tile.label = entry.info.loadLabel(getPackageManager()).toString();
-        Drawable drawable = entry.info.loadIcon(getPackageManager());
-        int iw = Math.max(1, drawable.getIntrinsicWidth()), ih = Math.max(1, drawable.getIntrinsicHeight());
-        float factor = Math.min(322f/iw, 193f/ih);
-        tile.icon = Bitmap.createBitmap(Math.max(1, Math.round(iw*factor)), Math.max(1, Math.round(ih*factor)), Bitmap.Config.ARGB_8888);
-        drawable.setBounds(0, 0, tile.icon.getWidth(), tile.icon.getHeight());
-        drawable.draw(new Canvas(tile.icon));
-        tile.color = TopShelf.dominant(tile.icon);
-        try { backdrop.prepare(tile.pkg, tile.icon, tile.color); }
-        catch (RuntimeException unavailable) { Log.w(LOG_TAG, "Backdrop unavailable for " + tile.pkg); }
-        int width = px(365), height = px(205);
-        Bitmap flat = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(flat);
-        android.graphics.Paint paint = new android.graphics.Paint(3);
-        android.graphics.RectF rect = new android.graphics.RectF(0,0,width,height);
-        paint.setColor(tile.color);
-        canvas.drawRoundRect(rect, px(40), px(40), paint);
-        paint.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN));
-        Bitmap art = ArtworkFiles.decode(ArtworkFiles.tile(tile.pkg), width, height, Bitmap.Config.ARGB_8888);
-        Drawable banner = entry.info.activityInfo.loadBanner(getPackageManager());
-        if (banner == null) banner=entry.info.activityInfo.applicationInfo.loadBanner(getPackageManager());
-        if (art == null && banner != null) {
-            art=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
-            banner.setBounds(0,0,width,height); banner.draw(new Canvas(art));
-        }
-        if (art != null) {
-            float fit=Math.max(width/(float)art.getWidth(),height/(float)art.getHeight());
-            float w=art.getWidth()*fit,h=art.getHeight()*fit;
-            canvas.drawBitmap(art,null,new android.graphics.RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),paint);
-            art.recycle();
-        } else {
-            paint.setShader(new android.graphics.LinearGradient(0,0,width,height,tile.color,0xff141923,android.graphics.Shader.TileMode.CLAMP));
-            canvas.drawRect(rect,paint); paint.setShader(null); paint.setXfermode(null);
-            float fit=Math.min(width*.85f/tile.icon.getWidth(),height*.75f/tile.icon.getHeight());
-            float w=tile.icon.getWidth()*fit,h=tile.icon.getHeight()*fit;
-            canvas.drawBitmap(tile.icon,null,new android.graphics.RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),paint);
-        }
-        tile.icon.recycle(); tile.icon=flat;
+        tile.entry = entry;
+        backdrop.register(tile.pkg);
         // Resolve the route and flags once, away from the key/click path.
         LaunchRoute route = LaunchRoute.build(tile.pkg, entry.info.activityInfo.name,
                 entry.category, ownTaskPackages);
@@ -324,14 +289,61 @@ public final class LauncherActivity extends Activity {
 
     private void attachTile(int row, int column) {
         TileData tile = rowData.get(row).get(column);
-        BitmapDrawable art = new BitmapDrawable(getResources(), tile.icon);
-        art.setBounds(0, 0, tile.icon.getWidth(), tile.icon.getHeight());
-        tile.button = addShortcut(row, column, tile.key, tile.label, art, tile.launch);
+        tile.button = addShortcut(row, column, tile.key, tile.label, null, tile.launch);
+        if (visibleRow(row)) bindTileArt(row, tile);
         tile.button.setTag(column);
         positionTile(row, column, tile.button);
         FrameLayout.LayoutParams size = new FrameLayout.LayoutParams(px(365), px(205));
         size.topMargin = px(32);
         trays[row].addView(tile.button, size);
+    }
+
+    private boolean visibleRow(int row) { return row == activeRow || row == activeRow + 1; }
+
+    private void refreshVisibleTiles() {
+        if (isFinishing() || isDestroyed() || trays == null) return;
+        for (int row = 0; row < trays.length; row++) {
+            for (int i = 0; i < trays[row].getChildCount(); i++) {
+                TileButton button = (TileButton)trays[row].getChildAt(i);
+                if (visibleRow(row)) bindTileArt(row, rowData.get(row).get((Integer)button.getTag()));
+                else if (button.hasArt()) button.clearArt();
+            }
+        }
+    }
+
+    private void bindTileArt(int row, TileData tile) {
+        final TileButton target = (TileButton)tile.button;
+        if (target.hasArt() || target.requestingArt) return;
+        Bitmap hit = backdrop.cache.get(tile.key);
+        if (hit != null) target.setArt(hit);
+        else {
+            target.requestingArt = true;
+            final int w=px(365), h=px(205);
+            backdrop.worker.execute(() -> {
+                if (backdrop.cancelled() || tile.button != target) return;
+                Bitmap art = null;
+                try {
+                    art = backdrop.cache.get(tile.key);
+                    if (art == null) {
+                        synchronized (ArtCache.DECODER) {
+                            if (backdrop.cancelled() || tile.button != target) return;
+                            art = backdrop.tiles.render(tile.entry.info,w,h);
+                        }
+                    }
+                } catch (RuntimeException unavailable) { /* Keep the tile launchable. */ }
+                if (backdrop.cancelled()) return;
+                if (art != null) backdrop.cache.put(tile.key,art);
+                final Bitmap result = art;
+                int color = result == null ? 0xff374157 : TopShelf.dominant(result);
+                runOnUiThread(() -> {
+                    if (isDestroyed() || isFinishing()) return;
+                    target.requestingArt = false;
+                    backdrop.tint(tile.pkg,color);
+                    if (result != null && tile.button == target && visibleRow(row)) target.setArt(result);
+                    if (rowPreviews[row]!=null) rowPreviews[row].invalidate();
+                });
+            });
+        }
     }
 
     private void positionTile(int row, int column, Button button) {
@@ -478,17 +490,20 @@ public final class LauncherActivity extends Activity {
     private View createRowPreview(int row) {
         List<TileData> tiles = rowData.get(row);
         final int count = Math.min(5, tiles.size());
-        final Bitmap[] images = new Bitmap[count];
+
         final android.graphics.Rect[] destinations = new android.graphics.Rect[count];
         final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
         for (int i = 0; i < count; i++) {
-            images[i] = tiles.get(i).icon;
+
             int left = px(34 + i * 423);
             destinations[i] = new android.graphics.Rect(left, px(32), left + px(365), px(237));
         }
         View preview = new View(this) {
             @Override protected void onDraw(Canvas canvas) {
-                for (int i = 0; i < count; i++) canvas.drawBitmap(images[i], null, destinations[i], paint);
+                for (int i = 0; i < count; i++) {
+                    Bitmap art = backdrop.cache.get(tiles.get(i).key);
+                    if (art != null) canvas.drawBitmap(art,null,destinations[i],paint);
+                }
             }
         };
         preview.setFocusable(false);
@@ -521,6 +536,8 @@ public final class LauncherActivity extends Activity {
         }
         if (activeRow != row) {
             activeRow = row;
+            scene.removeCallbacks(refreshTiles);
+            scene.postOnAnimation(refreshTiles);
             rows.setTranslationY(px(RowPresentation.translation(row)));
             for (int i = 0; i < trays.length; i++) {
                 float alpha = RowPresentation.alpha(i, row);
@@ -529,7 +546,7 @@ public final class LauncherActivity extends Activity {
                 if (preview != null && preview.getAlpha() != alpha) preview.setAlpha(alpha);
             }
         }
-        backdrop.show(pkg);
+        backdrop.show(pkg, fastNavigation);
         schedulePreparation();
     }
 
@@ -626,12 +643,18 @@ public final class LauncherActivity extends Activity {
         super.onStop();
     }
 
+    @Override public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (backdrop != null && level >= TRIM_MEMORY_RUNNING_LOW) backdrop.cache.evictAll();
+    }
+
     @Override
     protected void onDestroy() {
         pairUi.removeCallbacks(pairExpiry);
         settingsOpening = false;
         scene.removeCallbacks(launchSettings);
         clearPending();
+        scene.removeCallbacks(refreshTiles);
         if (backdrop != null) backdrop.close();
         super.onDestroy();
     }

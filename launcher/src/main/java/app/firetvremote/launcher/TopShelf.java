@@ -2,7 +2,6 @@ package app.firetvremote.launcher;
 
 import android.content.Context;
 import android.graphics.*;
-import android.util.LruCache;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import java.io.*;
@@ -15,13 +14,77 @@ final class TopShelf extends FrameLayout {
 
     @Override protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
-        if (trace != null) trace.draw(displayed, false);
+        canvas.drawRect(0,0,getWidth(),getHeight(),shade);
+        if (trace != null) trace.draw(displayed == null ? null : selection, false);
     }
 
     final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final LruCache<String, Bitmap> cache = new LruCache<>(4);
+    final ArtCache cache = new ArtCache();
+    final TileArt tiles;
+    private final TmdbShelf provider;
+    private final ExecutorService network = Executors.newSingleThreadExecutor();
+    private boolean refreshing, refreshAgain;
+    private final Map<String, Integer> rotations = new HashMap<>();
+    private final Map<String, Integer> colors = new HashMap<>();
+    private String selection;
+    private String rotationOwner;
+    private final android.content.BroadcastReceiver connectivity = new android.content.BroadcastReceiver() {
+        @Override public void onReceive(Context context, android.content.Intent intent) { refresh(); }
+    };
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        android.content.IntentFilter filter = new android.content.IntentFilter(android.net.ConnectivityManager.CONNECTIVITY_ACTION);
+        if (android.os.Build.VERSION.SDK_INT >= 33) getContext().registerReceiver(connectivity, filter, Context.RECEIVER_NOT_EXPORTED);
+        else getContext().registerReceiver(connectivity, filter);
+    }
+    @Override protected void onDetachedFromWindow() {
+        getContext().unregisterReceiver(connectivity);
+        super.onDetachedFromWindow();
+    }
+    private boolean rapid;
+    private int tint;
+    private final Paint gradient = new Paint();
+    private final Paint shade = new Paint();
+    private File desiredFile;
+    private final Runnable settle = this::settleSelection;
+    boolean cancelled() { return closed || Thread.currentThread().isInterrupted(); }
+
+    void refresh() {
+        if (closed) return;
+        if (refreshing) { refreshAgain = true; return; }
+        refreshing = true;
+        network.execute(() -> {
+            provider.refresh(() -> post(() -> {
+                if (!closed && !suspended && selection != null) settleSelection();
+            }));
+            post(() -> {
+                refreshing = false;
+                if (!closed && refreshAgain) { refreshAgain = false; refresh(); }
+            });
+        });
+    }
+
+    @Override protected void onSizeChanged(int w,int h,int oldW,int oldH) {
+        super.onSizeChanged(w,h,oldW,oldH);
+        updateGradient(tint);
+        shade.setShader(new LinearGradient(0,h*.50f,0,Math.max(1,h),0x00000000,0xeb050609,Shader.TileMode.CLAMP));
+    }
+    private void updateGradient(int color) {
+        tint = color;
+        int dark = Color.rgb(Color.red(color)/3, Color.green(color)/3, Color.blue(color)/3);
+        gradient.setShader(new LinearGradient(0,0,Math.max(1,getWidth()),Math.max(1,getHeight()),
+                dark,0xff080a0f,Shader.TileMode.CLAMP));
+    }
+
+    @Override protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        canvas.drawRect(0,0,getWidth(),getHeight(),gradient);
+    }
+
     private final Map<String, File> sources = new HashMap<>();
     private final ImageView image;
+    private final ImageView previous;
+    private android.graphics.drawable.Drawable outgoing;
     private volatile String requested;
     private volatile boolean closed;
     private Future<?> pending;
@@ -30,7 +93,13 @@ final class TopShelf extends FrameLayout {
 
     TopShelf(Context context) {
         super(context);
+        tiles = new TileArt(context);
+        provider = new TmdbShelf(context);
+        setWillNotDraw(false);
         setBackgroundColor(0xff050609);
+        previous = new ImageView(context);
+        previous.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        addView(previous, new LayoutParams(-1,-1));
         image = new ImageView(context);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         addView(image, new LayoutParams(-1, -1));
@@ -49,86 +118,71 @@ final class TopShelf extends FrameLayout {
         return count == 0 ? 0xff506e9a : Color.rgb((int)(r/count), (int)(g/count), (int)(b/count));
     }
 
-    void prepare(String pkg, Bitmap icon, int color) {
-        File source = ArtworkFiles.backdrop(pkg);
-        if (source == null) {
-            int fingerprint = color;
-            for (int y = 0; y < icon.getHeight(); y += 4) for (int x = 0; x < icon.getWidth(); x += 4) {
-                fingerprint = 31 * fingerprint + icon.getPixel(x, y);
-            }
-            source = new File(getContext().getCacheDir(), "shelf-v2-" + pkg + ".jpg");
-            File stamp = new File(getContext().getCacheDir(), "shelf-v2-" + pkg + ".stamp");
-            boolean reusable = false;
-            try (DataInputStream in = new DataInputStream(new FileInputStream(stamp))) {
-                reusable = source.isFile() && source.length() > 0 && in.readInt() == fingerprint;
-            } catch (IOException ignored) { }
-            if (reusable) { sources.put(pkg, source); return; }
-            Bitmap art = Bitmap.createBitmap(640, 240, Bitmap.Config.RGB_565);
-            Canvas canvas = new Canvas(art);
-            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
-            paint.setShader(new LinearGradient(0, 0, 640, 240,
-                    new int[]{color, mix(color, 0xff10152b, .48f), 0xff080b14}, null, Shader.TileMode.CLAMP));
-            canvas.drawPaint(paint);
-            paint.setShader(null); paint.setAlpha(48);
-            // A low-resolution copy creates a soft graphic without a runtime blur.
-            Bitmap soft = Bitmap.createScaledBitmap(icon, 32, 24, true);
-            canvas.drawBitmap(soft, null, new Rect(340, -20, 670, 245), paint);
-            soft.recycle(); paint.setAlpha(255);
-            paint.setShader(new RadialGradient(370, 80, 400,
-                    new int[]{0x00000000, 0xc9000000}, null, Shader.TileMode.CLAMP));
-            canvas.drawPaint(paint);
-            try {
-                try (FileOutputStream out = new FileOutputStream(source)) {
-                    if (!art.compress(Bitmap.CompressFormat.JPEG, 88, out)) throw new IOException("JPEG write failed");
-                }
-                try (DataOutputStream out = new DataOutputStream(new FileOutputStream(stamp))) { out.writeInt(fingerprint); }
-            } catch (IOException e) {
-                stamp.delete();
-                android.util.Log.w("FamilyTV", "Backdrop cache", e);
-            }
-            art.recycle();
+    void register(String pkg) { sources.put(pkg, ArtworkFiles.backdrop(pkg)); }
+    void tint(String pkg, int color) {
+        colors.put(pkg,color);
+        if (pkg.equals(selection)) { updateGradient(color); invalidate(); }
+    }
+    private Bitmap load(String key, File file) {
+        synchronized (ArtCache.DECODER) {
+            return cancelled() ? null : decode(key, file);
         }
-        sources.put(pkg, source);
+    }
+    private Bitmap decode(String key, File file) {
+        Bitmap bitmap = ArtworkFiles.decode(file, 1280, 720, Bitmap.Config.RGB_565);
+        if (bitmap == null || cancelled()) return null;
+        if (bitmap.getWidth()>1280 || bitmap.getHeight()>720 || bitmap.getConfig()!=Bitmap.Config.RGB_565) {
+            Bitmap frame = Bitmap.createBitmap(1280,720,Bitmap.Config.RGB_565);
+            float scale=Math.max(1280f/bitmap.getWidth(),720f/bitmap.getHeight());
+            float w=bitmap.getWidth()*scale,h=bitmap.getHeight()*scale;
+            new Canvas(frame).drawBitmap(bitmap,null,new RectF((1280-w)/2,(720-h)/2,(1280+w)/2,(720+h)/2),
+                    new Paint(Paint.FILTER_BITMAP_FLAG));
+            bitmap.recycle();
+            bitmap=frame;
+        }
+        cache.put(key,bitmap);
+        return bitmap;
     }
 
-    static int mix(int a, int b, float t) {
-        return Color.rgb((int)(Color.red(a)*(1-t)+Color.red(b)*t),
-                (int)(Color.green(a)*(1-t)+Color.green(b)*t),
-                (int)(Color.blue(a)*(1-t)+Color.blue(b)*t));
+    void show(String pkg, boolean repeat) {
+        if (closed || pkg == null || pkg.equals(selection)) return;
+        selection = pkg;
+        rotationOwner = null;
+        rapid = repeat;
+        requested = null;
+        displayed = null;
+        image.animate().cancel();
+        outgoing = repeat ? null : image.getDrawable();
+        previous.setImageDrawable(null);
+        image.setImageDrawable(null);
+        removeCallbacks(settle);
+        if (!suspended) postOnAnimation(settle);
     }
 
-    private Bitmap load(String pkg) {
-        Bitmap hit = cache.get(pkg);
-        if (hit != null) return hit;
-        File file = sources.get(pkg);
-        if (file == null) return null;
-        Bitmap decoded = ArtworkFiles.decode(file, 640, 240, Bitmap.Config.RGB_565);
-        if (decoded == null) return null;
-        Bitmap result = Bitmap.createBitmap(640, 240, Bitmap.Config.RGB_565);
-        float scale = Math.max(640f/decoded.getWidth(), 240f/decoded.getHeight());
-        float w = decoded.getWidth()*scale, h = decoded.getHeight()*scale;
-        new Canvas(result).drawBitmap(decoded, null, new RectF((640-w)/2,(240-h)/2,(640+w)/2,(240+h)/2),
-                new Paint(Paint.FILTER_BITMAP_FLAG));
-        decoded.recycle(); cache.put(pkg, result); return result;
+    private void settleSelection() {
+        if (closed || suspended || selection==null) return;
+        Integer color = colors.get(selection);
+        updateGradient(color == null ? 0xff374157 : color);
+        File file = sources.get(selection);
+        if (file == null) {
+            List<File> files = provider.images(selection);
+            if (!files.isEmpty()) {
+                Integer last=rotations.get(selection);
+                int index=last==null ? 0 : (last + (selection.equals(rotationOwner) ? 0 : 1)) % files.size();
+                file=files.get(index);
+                rotations.put(selection,index);
+                rotationOwner=selection;
+            }
+        }
+        desiredFile = file;
+        requested = "shelf/"+selection+"/"+(file==null ? "" : file.getName());
+        invalidate();
+        if (file==null) { present(requested,null); return; }
+        showNow(requested);
     }
 
-    private final Runnable update = () -> showNow(requested);
-    void show(String pkg) {
-        if (closed || pkg == null) return;
-        requested = pkg;
-        removeCallbacks(update);
-        if (!suspended) postOnAnimation(update);
-    }
-
-    void suspend() {
-        suspended = true;
-        removeCallbacks(update);
-    }
-
-    void resume() {
-        suspended = false;
-        if (requested != null && !closed) show(requested);
-    }
+    void suspend() { suspended = true; removeCallbacks(settle); }
+    void resume() { suspended = false; refresh(); if (selection!=null) postOnAnimation(settle); }
 
     // At most one decode in flight. New selections replace the desired key.
     private void showNow(String pkg) {
@@ -139,31 +193,46 @@ final class TopShelf extends FrameLayout {
             return;
         }
         if (pending != null) return;
+        final File file = desiredFile;
         pending = worker.submit(() -> {
             boolean decode = pkg.equals(requested) && !suspended && !closed;
-            Bitmap art = decode ? load(pkg) : null;
+            Bitmap art = decode ? load(pkg,file) : null;
             post(() -> {
                 pending = null;
                 if (closed || suspended) return;
                 if (decode && pkg.equals(requested)) present(pkg, art);
-                else showNow(requested);
+                else if (requested != null) showNow(requested);
             });
         });
     }
 
     private void present(String pkg, Bitmap art) {
         displayed = pkg;
+        beginTransition(art);
         image.setImageBitmap(art);
-        if (image.getAlpha() != 1f) image.setAlpha(1f);
+        image.animate().cancel();
+        if (art != null && !rapid) {
+            image.setAlpha(0f);
+            image.animate().alpha(1f).setDuration(100).withEndAction(() -> previous.setImageDrawable(null)).start();
+        } else image.setAlpha(1f);
         if (trace != null) invalidate();
+    }
+
+    private void beginTransition(Bitmap next) {
+        previous.setImageDrawable(next == null || rapid ? null : outgoing);
+        outgoing = null;
     }
 
     void close() {
         closed = true;
+        provider.close();
+        network.shutdownNow();
         suspend();
+        outgoing = null;
+        previous.setImageDrawable(null);
         image.setImageDrawable(null);
         // Evict after queued/running artwork work; otherwise an in-flight load can refill a closed cache.
-        worker.execute(cache::evictAll);
-        worker.shutdown();
+        worker.shutdownNow();
+        cache.evictAll();
     }
 }

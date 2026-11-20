@@ -26,7 +26,7 @@ stubs={
 'android/provider/Settings.java':'package android.provider;public class Settings{public static final String ACTION_SETTINGS="android.settings.SETTINGS";}',
 'android/widget/Toast.java':'package android.widget;public class Toast{public static int shown;public static final int LENGTH_SHORT=0;public static Toast makeText(Object c,String s,int n){shown++;return new Toast();}public void show(){}}',
 'android/os/Environment.java':'package android.os;public class Environment{public static java.io.File root;public static boolean denied;public static java.io.File getExternalStorageDirectory(){if(denied)throw new SecurityException();return root;}}',
-'android/graphics/Bitmap.java':'package android.graphics;public class Bitmap{public enum Config{ARGB_8888,RGB_565}}',
+'android/graphics/Bitmap.java':'package android.graphics;public class Bitmap{int size;public Bitmap(){}public Bitmap(int n){size=n;}public int getAllocationByteCount(){return size;}public enum Config{ARGB_8888,RGB_565}}',
 'android/graphics/BitmapFactory.java':'''package android.graphics;public class BitmapFactory{public static int mode,sample;public static class Options{public boolean inJustDecodeBounds;public int outWidth,outHeight,inSampleSize;public Bitmap.Config inPreferredConfig;}public static Bitmap decodeFile(String p,Options o){if(mode==1)throw new SecurityException();if(o.inJustDecodeBounds){o.outWidth=mode==2?-1:4000;o.outHeight=mode==2?-1:2000;return null;}sample=o.inSampleSize;return mode==3?null:new Bitmap();}}'''}
 for name,text in stubs.items():
  f=build/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text(text)
@@ -80,16 +80,16 @@ public class RecoveryTest{static void check(boolean b){if(!b)throw new Assertion
  check(intent.flags==(own.contains(pkg)?0x10200000:0));}
  System.out.println("PASS: executable production hide recovery (complete/partial), artwork lookup/decode failures/priority and Android intent construction (host fakes)");}}
 ''')
-shelf_harness = r'''package app.firetvremote.launcher;import android.graphics.Bitmap;import java.util.*;import java.util.concurrent.*;
+shelf_harness = r'''package app.firetvremote.launcher;import android.graphics.Bitmap;import java.io.File;import java.util.*;import java.util.concurrent.*;
 public class ShelfHarness{
- boolean closed,suspended;String requested="bad",displayed="old";Future<?> pending;final List<String> order=new ArrayList<>();
- final ExecutorService worker=Executors.newSingleThreadExecutor();final Image image=new Image();
- static class Image{Bitmap value=new Bitmap();void setImageBitmap(Bitmap b){value=b;}float getAlpha(){return 1;}void setAlpha(float a){}}
+ boolean rapid,closed,suspended;java.io.File desiredFile;String requested="bad",displayed="old";Future<?> pending;final List<String> order=new ArrayList<>();
+ final ExecutorService worker=Executors.newSingleThreadExecutor();final Image image=new Image(),previous=new Image(); void beginTransition(Bitmap next){}
+ static class Image{Bitmap value=new Bitmap();void setImageBitmap(Bitmap b){value=b;}float getAlpha(){return 1;}void setAlpha(float a){} Image animate(){return this;} void cancel(){} Image alpha(float a){return this;} void setImageDrawable(Object d){} Image withEndAction(Runnable r){return this;} Image setDuration(long l){return this;} void start(){}}
  final Map<String,Bitmap> cache=new HashMap<>(); Object trace;void invalidate(){}
  final BlockingQueue<Runnable> ui=new LinkedBlockingQueue<>();
  final List<String> loads=Collections.synchronizedList(new ArrayList<>());
  final CountDownLatch started=new CountDownLatch(1), release=new CountDownLatch(1);
- Bitmap load(String pkg){loads.add(pkg);if(pkg.equals("slow")){started.countDown();try{release.await();}catch(InterruptedException e){throw new AssertionError(e);}}return null;}
+ Bitmap load(String pkg,java.io.File file){loads.add(pkg);if(pkg.equals("slow")){started.countDown();try{release.await();}catch(InterruptedException e){throw new AssertionError(e);}}return null;}
  void post(Runnable r){ui.add(r);}
  void complete()throws Exception{Runnable r=ui.poll(2,TimeUnit.SECONDS);if(r==null)throw new AssertionError("missing completion");r.run();}
  public static void main(String[] args)throws Exception{ShelfHarness h=new ShelfHarness();try{h.showNow("bad");h.pending.get(2,TimeUnit.SECONDS);h.complete();if(h.image.value!=null||!"bad".equals(h.displayed))throw new AssertionError();
@@ -103,9 +103,9 @@ public class ShelfHarness{
 ''' + method('private void showNow(', (base/'TopShelf.java').read_text()) + method('private void present(', (base/'TopShelf.java').read_text()) + '\n}'
 (build/'ShelfHarness.java').write_text(shelf_harness)
 java=Path(os.environ['JAVA_HOME'])/'bin'
-sources=[p for p in build.rglob('*.java') if not p.name.startswith('._')]+[base/(n+'.java') for n in ['LaunchRoute','AppCatalog','ArtworkFiles']]+[root/'tests/LaunchRouteTest.java']
+sources=[p for p in build.rglob('*.java') if not p.name.startswith('._')]+[base/(n+'.java') for n in ['LaunchRoute','AppCatalog','ArtworkFiles','ArtCache']]+[root/'tests/LaunchRouteTest.java',root/'tests/ArtCacheTest.java']
 subprocess.run([str(java/'javac'),'--release','8','-d',str(build),*[str(p) for p in sources]],check=True)
-for cls in ['LaunchRouteTest','RecoveryTest','ActivityHarness','ShelfHarness']:
+for cls in ['ArtCacheTest','LaunchRouteTest','RecoveryTest','ActivityHarness','ShelfHarness']:
  subprocess.run([str(java/'java'),'-cp',str(build),'app.firetvremote.launcher.'+cls,str(build)],check=True)
 # Explicitly source checks: these prove wiring, not Android lifecycle/rendering.
 assert 'gear.setOnClickListener(v -> showOptions())' in activity

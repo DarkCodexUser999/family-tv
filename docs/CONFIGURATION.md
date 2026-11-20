@@ -38,7 +38,9 @@ adb -s "$TV_IP:5555" shell mkdir -p /sdcard/FamilyTV/tiles /sdcard/FamilyTV/back
 adb -s "$TV_IP:5555" push my-tile.png /sdcard/FamilyTV/tiles/com.amazon.firetv.youtube.png
 ```
 
-Use artwork you have permission to use. Tiles center-crop overrides; otherwise they use the app's TV banner, or a colored icon fallback. Tiles are pre-rendered into rounded ARGB_8888 bitmaps on the artwork worker. Backdrops use local overrides or generated gradient/icon artwork, decoded to approximately 640×240 RGB_565 and held in a four-entry cache. Restart the launcher after changing artwork. Override directories are read-only inputs for the launcher. Generated artwork is cached privately and reused when the sampled icon/color fingerprint matches; overrides still take precedence.
+Tiles use a local PNG first, then a center-cropped TV banner, then a full-height icon with an edge-color or gradient fill. Visible tile images are rendered on a single worker with rounded corners and cached privately. Restart after editing local overrides.
+
+Local backdrops take priority. For TMDB, place your own credential in `/sdcard/FamilyTV/tmdb_key.txt`. While online, the launcher checks Indian movie and TV provider lists, discovers titles from the last 90 days and rotates among up to five available stills per provider. Refresh attempts are limited to one per 24 hours. The private cache holds up to 30 JPEGs. Without usable artwork the shelf shows a dark brand-tinted gradient. The decoded art cache shares an 8 MiB budget between tiles and pictures and holds at most three backdrops. Visible views and a decode in progress use additional memory.
 
 ## Display sizing
 

@@ -3,6 +3,7 @@
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 python3 "$root/tests/check-catalog.py"
+python3 "$root/tests/check-provider-secrets.py"
 sh "$root/tests/check-launcher-policy.sh"
 sh "$root/tests/check-rows.sh"
 sh "$root/tests/check-navigation.sh"

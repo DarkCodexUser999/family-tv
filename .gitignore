@@ -55,3 +55,7 @@ secrets/
 # Local JVM diagnostics and Flutter native-assets intermediates
 *.hprof
 **/.cxx/
+
+# Local TMDB credentials
+tmdb.properties
+tmdb_key.txt

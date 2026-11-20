@@ -83,3 +83,9 @@ The project brief used FireFrame, dumbtv, firedtvlauncher, FTVLaunchX, tvOS-Laun
 ## Phone app candidate
 
 Day 5 adds a remote pad to the Flutter pairing source under mobile/. Exact TLS certificate pinning and saved credentials authenticate the connection; D-pad/OK/Home/Back/Options work only while Family TV is open. No other-app input, TV volume or power. See [mobile setup](mobile/README.md), [local evidence](docs/DAY_5_REVIEW.md), and [dependencies](docs/MOBILE_DEPENDENCIES.md). Source is published; physical phone/TV, memory/latency and iOS build acceptance remain pending.
+
+## Movie and series artwork
+
+Family TV reads the optional TMDB credential from `/sdcard/FamilyTV/tmdb_key.txt` on the stick. Supply a TMDB API key or API Read Access Token there. Keep this file off GitHub. The launcher resolves streaming providers for India and downloads artwork in the background. Local package artwork overrides take priority. A tinted dark gradient covers missing artwork.
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
