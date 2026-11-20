@@ -701,10 +701,10 @@ public final class LauncherActivity extends Activity {
                     if (choice == 5) { openFireSettings(); return; }
                     if (choice == 0) app.firetvremote.launcher.lan.LanService.setEnabled(this, !enabled);
                     else if (choice == 1) showRemoteDialog(new AlertDialog.Builder(this)
-                            .setTitle("Remote access").setMessage(app.firetvremote.launcher.lan.LanService.connectionDetails())
+                            .setTitle("Remote access").setMessage(app.firetvremote.launcher.lan.LanService.connectionDetails(this))
                             .setPositiveButton("Close", null));
                     else if(choice==2 || choice==3) {
-                        if(!enabled) showRemoteDialog(new AlertDialog.Builder(this).setTitle("Remote access is OFF")
+                        if(choice==2 && !enabled) showRemoteDialog(new AlertDialog.Builder(this).setTitle("Remote access is OFF")
                                 .setMessage("Enable remote access first.").setPositiveButton("Close",null));
                         else if(choice==2) app.firetvremote.launcher.lan.LanService.action(this,"pair");
                         else showRemoteDialog(new AlertDialog.Builder(this).setTitle("Revoke all phones?")

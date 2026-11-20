@@ -26,7 +26,11 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ActionDispatcher.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/EventHub.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/FrameDeadlineInput.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/LanControl.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/Revocations.java" \
+    "$root/tests/LanControlTest.java" \
     "$root/tests/LanTransportTest.java" "$root/tests/PairingTest.java" "$root/tests/RemoteBridgeTest.java" "$root/tests/WssTransportTest.java" "$root/tests/RemoteHarness.java"
+"$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.LanControlTest
 "$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.LanTransportTest \
     "$build/test.p12" "$build/info.json"
 
