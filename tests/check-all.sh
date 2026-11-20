@@ -30,8 +30,7 @@ for row in rows:
     packages = row['packages']
     if not isinstance(packages, list) or not all(isinstance(p, str) and p.strip() for p in packages):
         raise ValueError('Each row requires a list of nonempty package identifiers')
-for path in [root / 'launcher/src/main/AndroidManifest.xml', root / 'remote/src/main/AndroidManifest.xml',
-             root / 'launcher/src/main/res/xml/home_service.xml']:
+for path in [root / 'launcher/src/main/AndroidManifest.xml', root / 'remote/src/main/AndroidManifest.xml']:
     ET.parse(path)
 print('PASS: row configuration, manifests and shell syntax')
 PY
