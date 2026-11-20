@@ -76,3 +76,25 @@ Baseline d5b6952. The TV APK uses native Views, BitmapFactory, platform HttpURLC
 | Real India provider IDs returned for the installed apps, live refresh and 4 m legibility | UNVERIFIED |
 
 At handoff the sandbox blocked the ADB listener, LAN loopback bind and GitHub DNS. These blockers were rechecked on the authorized host: the full unskipped check-all gate (including real TLS/WSS) passes and GitHub fetch/issue creation work. ADB starts, but devices -l is empty; no installation or device data change occurred. The signed launcher is built and verified before publication. Protocol fixtures and mobile analyzer/21 tests/real Dart–Java interop are checked using the existing toolchain. The complete staged integration is tested and published as one cohesive cache/provider/UI increment because its classes and view wiring depend on each other. The secret scan runs after all new source is staged. No real credential was used and live TMDB/API22 results remain UNVERIFIED. Issue #8 stays open for physical acceptance: https://github.com/DarkCodexUser999/family-tv/issues/8. Final commit/CI evidence is recorded on the project board; no Batch 4 work is included.
+
+## Batch 4 · LAN control, restore and launcher cleanup
+
+| Finding | Change | Verification |
+|---|---|---|
+| F10 | Connectivity updates coalesce. Pairing reports a busy queue. Revocation records a pending request and reports its result in Family TV settings. | The blocked-worker test covers ordering and durable revocation outcomes. The full suite passed on the project owner's Mac, including real loopback TLS and WSS. |
+| F11 | Restore recognizes both legacy HOME service names, including after an uninstall. It validates ADB reads, checks the current list before updating it and verifies resulting settings, grant and package state. | Mock ADB covers stale, mixed and null lists, denied reads, concurrent edits, interrupted writes and repeat runs. |
+| F12 | Removed the HOME accessibility service and XML, unused backdrop and tile views, and the launcher's legacy TCP server and pairing UI. The native phone companion still builds. Restore and the explicit legacy-forget action remain available for old installations. | The integrated host suite exited 0. OpenAPI and event-schema checks passed for 9 positive and 20 negative fixtures, including validation of the available WSS state and acknowledgment output. |
+
+Both native APKs built and passed signature verification at each of the five prepared code revisions.
+
+Physical Fire OS behavior and incremental PSS with LAN enabled are **UNVERIFIED**. The ADB daemon could not open its local listener in this session.
+
+Published code commits for issue #9
+
+- c9e77c7825ae fix: preserve LAN command ordering and report revocation outcomes
+- 8830ac533f55 fix: verify legacy HOME cleanup and restore operations
+- 9e6d2500e4b9 refactor: remove the experimental HOME accessibility service
+- 0d8f327700a5 refactor: remove unused launcher backdrop and tile views
+- 4d037971ea27 refactor: retire the legacy TV pairing server
+
+Each listed commit passed its full host suite, protocol checks and both signed native APK builds before publication.
