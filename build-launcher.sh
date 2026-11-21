@@ -4,8 +4,16 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 project_dir=$(dirname "$repo_dir")
 sdk_dir="${ANDROID_HOME:-$project_dir/tools/android-sdk}"
-build_tools="$sdk_dir/build-tools/35.0.0"
-android_jar="$sdk_dir/platforms/android-36/android.jar"
+compile_sdk=36
+build_tools_version=35.0.0
+java_release=8
+build_tools="$sdk_dir/build-tools/$build_tools_version"
+android_jar="$sdk_dir/platforms/android-$compile_sdk/android.jar"
+print_config=false
+if [ "${1:-}" = --print-config ]; then
+    print_config=true
+    shift
+fi
 module=${1:-launcher}
 case "$module" in
     launcher) min_sdk=22; target_sdk=36; version_code=8; version_name=0.8; name=family-tv-debug ;;
@@ -13,6 +21,12 @@ case "$module" in
     *) printf 'Usage: sh build-launcher.sh [launcher|remote]\n' >&2; exit 2 ;;
 esac
 package="app.firetvremote.$module"
+if [ "$print_config" = true ]; then
+    printf '%s\n' "applicationId=$package" "compileSdk=$compile_sdk" "minSdk=$min_sdk" \
+        "targetSdk=$target_sdk" "versionCode=$version_code" "versionName=$version_name" \
+        "buildToolsVersion=$build_tools_version" "javaRelease=$java_release"
+    exit 0
+fi
 source_dir="$repo_dir/$module/src/main"
 build_dir="$repo_dir/$module/build/local"
 key_dir="$project_dir/tools/signing"
@@ -63,7 +77,7 @@ import sys,json
 from pathlib import Path
 p=Path(sys.argv[1]);p.write_text('\n'.join(json.dumps(line) for line in p.read_text().splitlines()))
 PYARG
-"$JAVA_HOME/bin/javac" --release 8 -classpath "$classpath" -d "$classes_dir" "@$build_dir/sources.list"
+"$JAVA_HOME/bin/javac" --release "$java_release" -classpath "$classpath" -d "$classes_dir" "@$build_dir/sources.list"
 python3 - "$classes_dir" "$build_dir/project-classes.jar" <<'PYJAR'
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED

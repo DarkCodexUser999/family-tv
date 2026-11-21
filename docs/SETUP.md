@@ -48,6 +48,15 @@ The direct script uses `javac`, `aapt2`, `d8`, `zipalign` and `apksigner`. Gradl
 
 The script generates a development signing key in the workspace's `tools/signing/` directory if absent. Its `android` password is a development default, not a production secret. Keep the key private and back it up securely. Updates require the same signing key. A different key produces an incompatible update; do not uninstall automatically to work around this, because uninstall removes Family TV's preferences and pairing records.
 
+### Native build parity and release signing
+
+Both native builds use JDK 17 with Java 8 source and class-file compatibility. The direct build uses `javac --release 8` and D8. The parity check compares Gradle and shell settings for application ID, compile/minimum/target SDK, version, Build Tools and Java level. After building both APKs, run `python3 tests/check-build-parity.py --apks` to check the packaged SDK and version fields, class-file versions and absence of Flutter assets or native libraries in the TV launcher.
+
+Use the original private development key for updates on the existing stick. Compare the candidate APK's certificate SHA-256 digest against a known installed-build APK with `apksigner verify --print-certs`. CI uses an ephemeral development key. A future production distribution needs its own private signing credentials and an explicit installation or migration plan for devices running development builds. Keep passwords and signing keys outside Git.
+
+The shipping build continues to use D8. A local API 22 R8 size probe used the same launcher classes and NanoHTTPD input, retained the manifest Activity and Service constructors, and disabled obfuscation and optimization. Shrinking reduced the uncompressed DEX from 188,164 to 161,124 bytes (14.4%). This measures code size only. Enabling R8 for distribution requires testing the shrunk APK on Fire OS, including app discovery, focus/launch, restore and TLS/WSS pairing.
+
+
 ## 3. Prepare the Fire TV
 
 1. Verify the device model and Fire OS version under Settings → My Fire TV → About.
