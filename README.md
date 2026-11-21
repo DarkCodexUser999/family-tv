@@ -17,6 +17,16 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 | Connectivity | Default-off HTTPS pairing/discovery; Day 5 candidate adds pinned WSS controls inside Family TV |
 | Build | JDK 17, Android SDK 36, Build Tools 35.0.0; direct shell build |
 
+## Screenshots
+
+The two captures below are from the second-generation Fire TV Stick during the November 10 row-navigation test. They show the launcher build that ran that day. Batch 5 still awaits a fresh device run.
+
+| First row with Netflix focused | Second row after pressing Down |
+|---|---|
+| ![Fire TV first row showing Netflix, Prime Video, YouTube and JioHotstar](docs/media/fire-tv-row-1.png) | ![Fire TV second row showing Apps, Downloader, Internet and a moon tile](docs/media/fire-tv-row-2.png) |
+
+The phone remote also has a [Flutter host render](docs/media/day5-remote-host-render.png) from its widget test.
+
 ## What it does
 
 - Discovers installed apps through `LEANBACK_LAUNCHER`, falling back to `LAUNCHER` activities.
