@@ -11,10 +11,11 @@ final class ArtCache {
     static final int BUDGET = 8 * 1024 * 1024;
     private final LinkedHashMap<String,Bitmap> entries = new LinkedHashMap<>(16, .75f, true);
     private int bytes, backdrops;
+    private boolean closed;
     synchronized Bitmap get(String key) { return entries.get(key); }
 
     synchronized void put(String key, Bitmap value) {
-        if (value.getAllocationByteCount() > BUDGET) return;
+        if (closed || value.getAllocationByteCount() > BUDGET) return;
         Bitmap previous = entries.put(key, value);
         boolean shelf = key.startsWith("shelf/");
         if (previous != null) bytes -= previous.getAllocationByteCount();
@@ -30,5 +31,10 @@ final class ArtCache {
             it.remove();
         }
     }
+    synchronized void close() {
+        closed = true;
+        evictAll();
+    }
+
     synchronized void evictAll() { entries.clear(); bytes = backdrops = 0; }
 }

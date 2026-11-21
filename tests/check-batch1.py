@@ -19,7 +19,7 @@ stubs={
 'android/content/Context.java':'package android.content; public class Context {public android.content.res.AssetManager assets=new android.content.res.AssetManager(); public android.content.pm.PackageManager pm=new android.content.pm.PackageManager(); public android.content.res.AssetManager getAssets(){return assets;} public android.content.pm.PackageManager getPackageManager(){return pm;} public String getPackageName(){return "family.tv";}}',
 'android/content/res/AssetManager.java':'''package android.content.res; import java.io.*; public class AssetManager {public String data=""; public boolean fail; public int failAt=-1; public InputStream open(String name)throws IOException {if(fail)throw new IOException(); final byte[] b=data.getBytes("UTF-8");return new InputStream(){int n;public int read()throws IOException {if(n==failAt)throw new IOException();return n<b.length?b[n++]:-1;}};}}''',
 'android/content/pm/PackageManager.java':'''package android.content.pm; import java.util.*; public class PackageManager {public static final int PERMISSION_GRANTED=0; public boolean fail; public android.content.ComponentName component;public java.util.List<ResolveInfo> entries=new ArrayList<>();public List<ResolveInfo> queryIntentActivities(android.content.Intent i,int f){if(fail)throw new SecurityException();return entries;}public int checkPermission(String p,String n){return 0;}}''',
-'android/content/pm/ResolveInfo.java':'package android.content.pm; public class ResolveInfo {public ActivityInfo activityInfo;}',
+'android/content/pm/ResolveInfo.java':'package android.content.pm; public class ResolveInfo {public ActivityInfo activityInfo; public String label; public CharSequence loadLabel(PackageManager p){return label;}}',
 'android/content/pm/ActivityInfo.java':'package android.content.pm; public class ActivityInfo {public String packageName,name,permission;public boolean exported=true,enabled=true;public ApplicationInfo applicationInfo=new ApplicationInfo();}',
 'android/content/pm/ApplicationInfo.java':'package android.content.pm; public class ApplicationInfo {public boolean enabled=true;}',
 'android/util/Log.java':'package android.util; public class Log {public static int i(String a,String b){return 0;}public static int w(String a,String b){return 0;}public static int w(String a,String b,Throwable t){return 0;}}',
@@ -67,7 +67,7 @@ public class RecoveryTest{static void check(boolean b){if(!b)throw new Assertion
  Context c=new Context();c.assets.data="com.custom.hidden\n";check(AppCatalog.hiddenPackages(c).equals(new HashSet<>(Arrays.asList("com.custom.hidden"))));
  c.assets.fail=true;Set<String> defaults=AppCatalog.hiddenPackages(c);check(defaults.contains("com.onemainstream.sonyliv.android")&&defaults.size()==11);
  c.assets.fail=false;c.assets.failAt=c.assets.data.length();Set<String> partial=AppCatalog.hiddenPackages(c);check(partial.containsAll(defaults)&&partial.contains("com.custom.hidden"));
- c.pm.fail=true;try{AppCatalog.list(c);throw new AssertionError();}catch(SecurityException expected){}
+ c.pm.fail=true;try{AppCatalog.list(c,Collections.emptySet(),Collections.emptySet(),(pkg,info)->{});throw new AssertionError();}catch(SecurityException expected){}
  Environment.root=Files.createTempDirectory(Paths.get(a[0]),"art-").toFile();check(ArtworkFiles.tile("app.test")==null);
  Path dir=Environment.root.toPath().resolve("FamilyTV/backdrops");Files.createDirectories(dir);Files.write(dir.resolve("app.test.png"),new byte[]{1});check(ArtworkFiles.backdrop("app.test").getName().endsWith(".png"));
  Files.write(dir.resolve("app.test.jpg"),new byte[]{1});check(ArtworkFiles.backdrop("app.test").getName().endsWith(".jpg"));
@@ -75,7 +75,7 @@ public class RecoveryTest{static void check(boolean b){if(!b)throw new Assertion
  java.io.File file=dir.resolve("app.test.jpg").toFile();for(int mode=1;mode<=3;mode++){BitmapFactory.mode=mode;check(ArtworkFiles.decode(file,640,240,Bitmap.Config.RGB_565)==null);}
  BitmapFactory.mode=0;check(ArtworkFiles.decode(file,640,240,Bitmap.Config.RGB_565)!=null&&BitmapFactory.sample==8);
  for(String pkg:Arrays.asList("app.default","com.amazon.cloud9","in.startv.hotstar")){
- Set<String> own=new HashSet<>(Arrays.asList("com.amazon.cloud9","in.startv.hotstar"));LaunchRoute route=LaunchRoute.build(pkg,"Chosen","leanback",own);Intent intent=route.intent();
+ Set<String> own=new HashSet<>(Arrays.asList("com.amazon.cloud9","in.startv.hotstar"));LaunchRoute route=LaunchRoute.build(pkg,"Chosen","leanback",own);Intent intent=AppCatalog.intent(route);
  check(intent.component.pkg.equals(pkg)&&intent.component.name.equals("Chosen")&&intent.categories.contains("leanback"));
  check(intent.flags==(own.contains(pkg)?0x10200000:0));}
  System.out.println("PASS: executable production hide recovery (complete/partial), artwork lookup/decode failures/priority and Android intent construction (host fakes)");}}
@@ -83,6 +83,10 @@ public class RecoveryTest{static void check(boolean b){if(!b)throw new Assertion
 shelf_harness = r'''package app.firetvremote.launcher;import android.graphics.Bitmap;import java.io.File;import java.util.*;import java.util.concurrent.*;
 public class ShelfHarness{
  boolean rapid,closed,suspended;java.io.File desiredFile;String requested="bad",displayed="old";Future<?> pending;final List<String> order=new ArrayList<>();
+ final ShelfHarness artwork=this;
+ Future<?> submit(Runnable job){return worker.submit(job);}
+ Bitmap cached(String key){return cache.get(key);}
+ Bitmap loadBackdrop(String key,File file){return load(key,file);}
  final ExecutorService worker=Executors.newSingleThreadExecutor();final Image image=new Image(),previous=new Image(); void beginTransition(Bitmap next){}
  static class Image{Bitmap value=new Bitmap();void setImageBitmap(Bitmap b){value=b;}float getAlpha(){return 1;}void setAlpha(float a){} Image animate(){return this;} void cancel(){} Image alpha(float a){return this;} void setImageDrawable(Object d){} Image withEndAction(Runnable r){return this;} Image setDuration(long l){return this;} void start(){}}
  final Map<String,Bitmap> cache=new HashMap<>(); Object trace;void invalidate(){}
@@ -103,9 +107,9 @@ public class ShelfHarness{
 ''' + method('private void showNow(', (base/'TopShelf.java').read_text()) + method('private void present(', (base/'TopShelf.java').read_text()) + '\n}'
 (build/'ShelfHarness.java').write_text(shelf_harness)
 java=Path(os.environ['JAVA_HOME'])/'bin'
-sources=[p for p in build.rglob('*.java') if not p.name.startswith('._')]+[base/(n+'.java') for n in ['LaunchRoute','AppCatalog','ArtworkFiles','ArtCache']]+[root/'tests/LaunchRouteTest.java',root/'tests/ArtCacheTest.java']
+sources=[p for p in build.rglob('*.java') if not p.name.startswith('._')]+[base/(n+'.java') for n in ['LaunchRoute','CatalogEntry','CatalogRows','AppCatalog','ArtworkFiles','ArtCache']]+[root/'tests/LaunchRouteTest.java',root/'tests/ArtCacheTest.java',root/'tests/CatalogRowsTest.java']
 subprocess.run([str(java/'javac'),'--release','8','-d',str(build),*[str(p) for p in sources]],check=True)
-for cls in ['ArtCacheTest','LaunchRouteTest','RecoveryTest','ActivityHarness','ShelfHarness']:
+for cls in ['CatalogRowsTest','ArtCacheTest','LaunchRouteTest','RecoveryTest','ActivityHarness','ShelfHarness']:
  subprocess.run([str(java/'java'),'-cp',str(build),'app.firetvremote.launcher.'+cls,str(build)],check=True)
 # Explicitly source checks: these prove wiring, not Android lifecycle/rendering.
 assert 'gear.setOnClickListener(v -> showOptions())' in activity

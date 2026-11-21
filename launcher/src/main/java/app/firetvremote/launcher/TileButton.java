@@ -24,9 +24,8 @@ final class TileButton extends Button {
     private final RectF ringBounds = new RectF();
     private final float radius;
 
-    TileButton(Context context, Drawable artwork, float radius, float stroke) {
+    TileButton(Context context, float radius, float stroke) {
         super(context);
-        this.artwork = artwork;
         this.radius = radius;
         ring.setStyle(Paint.Style.STROKE);
         ring.setStrokeWidth(stroke);

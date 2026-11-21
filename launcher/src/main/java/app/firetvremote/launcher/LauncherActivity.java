@@ -38,6 +38,7 @@ public final class LauncherActivity extends Activity {
     private Button firstFavorite;
     private FocusTrace trace;
     private TopShelf backdrop;
+    private ArtworkLoader artwork;
     private FrameLayout scene;
     private FrameLayout rows;
     private FrameLayout[] trays;
@@ -63,10 +64,16 @@ public final class LauncherActivity extends Activity {
     private final List<List<TileData>> rowData = new ArrayList<>();
 
     private static final class TileData {
-        String key, label, pkg;
+        final String key, label, pkg;
+        final Runnable launch;
         volatile Button button;
-        AppCatalog.Entry entry;
-        Runnable launch;
+
+        TileData(CatalogEntry entry, Runnable launch) {
+            pkg = entry.route.pkg;
+            key = "app:" + pkg;
+            label = entry.label;
+            this.launch = launch;
+        }
     }
     private String focusedKey;
     private String focusOnReturn;
@@ -104,7 +111,8 @@ public final class LauncherActivity extends Activity {
             trace = new FocusTrace();
             animateArrival = getIntent().getBooleanExtra("short-focus-transform", false);
         }
-        backdrop = new TopShelf(this);
+        artwork = new ArtworkLoader(this);
+        backdrop = new TopShelf(this, artwork);
         backdrop.trace = trace;
         scene.addView(backdrop, new FrameLayout.LayoutParams(-1, px(760)));
 
@@ -113,93 +121,40 @@ public final class LauncherActivity extends Activity {
                 ? getPreferences(MODE_PRIVATE).getString("last-focus", null)
                 : savedInstanceState.getString("last-focus");
         lastSavedFocus = restore;
-        backdrop.worker.execute(() -> {
-            Map<String, AppCatalog.Entry> catalog;
-            try {
-                catalog = AppCatalog.list(this);
-            } catch (RuntimeException error) {
-                Log.w(LOG_TAG, "App discovery unavailable", error);
-                runOnUiThread(() -> {
-                    if (isDestroyed() || isFinishing()) return;
-                    catalogFailed = true;
-                    buildHome();
-                });
-                return;
-            }
-            catalog.keySet().removeAll(hiddenPackages);
-            LaunchRoute.preferPrimeApp(catalog.keySet());
-            try {
-                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
-                try (java.io.InputStream in = getAssets().open("rows.json")) {
-                    byte[] buffer = new byte[2048]; int count;
-                    while ((count=in.read(buffer))!=-1) bytes.write(buffer,0,count);
-                }
-                org.json.JSONObject config = new org.json.JSONObject(bytes.toString("UTF-8"));
-                org.json.JSONArray configured = config.getJSONArray("rows");
-                // Validate all row definitions before removing anything from the catalog.
-                List<List<String>> definitions = new ArrayList<>();
-                for (int r = 0; r < Math.min(4, configured.length()); r++) {
-                    org.json.JSONArray names = configured.getJSONObject(r).getJSONArray("packages");
-                    List<String> packages = new ArrayList<>();
-                    for (int i = 0; i < names.length(); i++) packages.add(names.getString(i));
-                    definitions.add(packages);
-                }
-                for (List<String> packages : definitions) {
-                    List<TileData> group = new ArrayList<>();
-                    for (String pkg : packages) {
-                        AppCatalog.Entry entry = catalog.remove(pkg);
-                        if (entry != null) {
-                            TileData tile = safeTileData(pkg, entry);
-                            if (tile != null) group.add(tile);
-                        }
-                    }
-                    rowData.add(group);
-                }
-            } catch(Exception e) { Log.w(LOG_TAG,"Rows config",e); }
-            if(rowData.isEmpty()) rowData.add(new ArrayList<>());
-            for(AppCatalog.Entry entry:catalog.values()) {
-                String pkg=entry.info.activityInfo.packageName;
-                TileData tile = safeTileData(pkg, entry);
-                if (tile == null) continue;
-                String label = tile.label.toLowerCase(java.util.Locale.ROOT);
-                int target = rowData.size()-1;
-                if(rowData.size()>1 && (label.contains("zee5") || label.contains("discovery"))) target=1;
-                rowData.get(target).add(tile);
-            }
-            for(int r=rowData.size()-1;r>=0;r--) if(rowData.get(r).isEmpty()) rowData.remove(r);
+        artwork.submit(() -> loadCatalog(restore));
+    }
+
+    private void loadCatalog(String restore) {
+        Map<String, CatalogEntry> installed;
+        try {
+            installed = AppCatalog.list(this, hiddenPackages, ownTaskPackages, artwork);
+        } catch (RuntimeException error) {
+            Log.w(LOG_TAG, "App discovery unavailable", error);
             runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) return;
+                if (isDestroyed() || isFinishing()) return;
+                catalogFailed = true;
                 buildHome();
-                restoreFocus(restore);
             });
-        });
-    }
-
-    private TileData safeTileData(String pkg, AppCatalog.Entry entry) {
-        if (backdrop.cancelled()) return null;
-        try { return tileData("app:" + pkg, entry); }
-        catch (RuntimeException error) {
-            // A package can be removed/updated while the startup snapshot is being built.
-            Log.w(LOG_TAG, "Skipping unavailable app " + pkg, error);
-            return null;
+            return;
         }
-    }
 
-    private TileData tileData(String key, AppCatalog.Entry entry) {
-        TileData tile = new TileData();
-        tile.key = key; tile.pkg = entry.info.activityInfo.packageName;
-        tile.label = entry.info.loadLabel(getPackageManager()).toString();
-        tile.entry = entry;
-        backdrop.register(tile.pkg);
-        // Resolve the route and flags once, away from the key/click path.
-        LaunchRoute route = LaunchRoute.build(tile.pkg, entry.info.activityInfo.name,
-                entry.category, ownTaskPackages);
-        if (route == null) return null;
-        final Intent launch = route.intent();
-        tile.launch = () -> openIntent(tile.label, launch);
-        Log.i(LOG_TAG,"RowTile "+tile.pkg);
-
-        return tile;
+        List<List<TileData>> prepared = new ArrayList<>();
+        for (List<CatalogEntry> row : CatalogRows.arrange(installed, RowConfig.read(this))) {
+            List<TileData> tiles = new ArrayList<>();
+            for (CatalogEntry entry : row) {
+                if (artwork.cancelled()) return;
+                Intent intent = AppCatalog.intent(entry.route);
+                tiles.add(new TileData(entry, () -> openIntent(entry.label, intent)));
+                Log.i(LOG_TAG, "RowTile " + entry.route.pkg);
+            }
+            prepared.add(tiles);
+        }
+        runOnUiThread(() -> {
+            if (isDestroyed() || isFinishing()) return;
+            rowData.addAll(prepared);
+            buildHome();
+            restoreFocus(restore);
+        });
     }
 
     private int px(int value) { return Math.round(value * uiScale); }
@@ -221,7 +176,7 @@ public final class LauncherActivity extends Activity {
         for (int row = 0; row < trays.length; row++) {
             FrameLayout tray = new FrameLayout(this);
             trays[row] = tray;
-            tray.setBackground(traySurface(0xff506e9a));
+            tray.setBackground(traySurface());
             tray.setAlpha(RowPresentation.alpha(row, 0));
             rows.addView(tray, rowPosition(row));
             if (row > 0) {
@@ -283,7 +238,7 @@ public final class LauncherActivity extends Activity {
 
     private void attachTile(int row, int column) {
         TileData tile = rowData.get(row).get(column);
-        tile.button = addShortcut(row, column, tile.key, tile.label, null, tile.launch);
+        tile.button = addShortcut(row, column, tile.key, tile.pkg, tile.label, tile.launch);
         if (visibleRow(row)) bindTileArt(row, tile);
         tile.button.setTag(column);
         positionTile(row, column, tile.button);
@@ -308,27 +263,20 @@ public final class LauncherActivity extends Activity {
     private void bindTileArt(int row, TileData tile) {
         final TileButton target = (TileButton)tile.button;
         if (target.hasArt() || target.requestingArt) return;
-        Bitmap hit = backdrop.cache.get(tile.key);
+        Bitmap hit = artwork.cached(tile.key);
         if (hit != null) target.setArt(hit);
         else {
             target.requestingArt = true;
             final int w=px(365), h=px(205);
-            backdrop.worker.execute(() -> {
-                if (backdrop.cancelled() || tile.button != target) return;
+            artwork.submit(() -> {
+                if (artwork.cancelled() || tile.button != target) return;
                 Bitmap art = null;
                 try {
-                    art = backdrop.cache.get(tile.key);
-                    if (art == null) {
-                        synchronized (ArtCache.DECODER) {
-                            if (backdrop.cancelled() || tile.button != target) return;
-                            art = backdrop.tiles.render(tile.entry.info,w,h);
-                        }
-                    }
+                    art = artwork.loadTile(tile.key, tile.pkg, w, h);
                 } catch (RuntimeException unavailable) { /* Keep the tile launchable. */ }
-                if (backdrop.cancelled()) return;
-                if (art != null) backdrop.cache.put(tile.key,art);
+                if (artwork.cancelled()) return;
                 final Bitmap result = art;
-                int color = result == null ? 0xff374157 : TopShelf.dominant(result);
+                int color = result == null ? 0xff374157 : ArtworkLoader.dominant(result);
                 runOnUiThread(() -> {
                     if (isDestroyed() || isFinishing()) return;
                     target.requestingArt = false;
@@ -495,7 +443,7 @@ public final class LauncherActivity extends Activity {
         View preview = new View(this) {
             @Override protected void onDraw(Canvas canvas) {
                 for (int i = 0; i < count; i++) {
-                    Bitmap art = backdrop.cache.get(tiles.get(i).key);
+                    Bitmap art = artwork.cached(tiles.get(i).key);
                     if (art != null) canvas.drawBitmap(art,null,destinations[i],paint);
                 }
             }
@@ -514,7 +462,7 @@ public final class LauncherActivity extends Activity {
         return shape;
     }
 
-    private Drawable traySurface(int color) {
+    private Drawable traySurface() {
         GradientDrawable panel = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0xff202631, 0xff111620});
         panel.setCornerRadius(px(62)); panel.setStroke(px(1), 0x66ffffff); return panel;
@@ -634,7 +582,7 @@ public final class LauncherActivity extends Activity {
 
     @Override public void onTrimMemory(int level) {
         super.onTrimMemory(level);
-        if (backdrop != null && level >= TRIM_MEMORY_RUNNING_LOW) backdrop.cache.evictAll();
+        if (artwork != null && level >= TRIM_MEMORY_RUNNING_LOW) artwork.trim();
     }
 
     @Override
@@ -645,6 +593,7 @@ public final class LauncherActivity extends Activity {
         clearPending();
         scene.removeCallbacks(refreshTiles);
         if (backdrop != null) backdrop.close();
+        if (artwork != null) artwork.close();
         super.onDestroy();
     }
 
@@ -751,8 +700,8 @@ public final class LauncherActivity extends Activity {
         }
     }
 
-    private Button addShortcut(int row, int column, String key, String label, Drawable icon, Runnable onSelect) {
-        Button button = new TileButton(this, icon, px(40), px(4));
+    private Button addShortcut(int row, int column, String key, String artworkPackage, String label, Runnable onSelect) {
+        Button button = new TileButton(this, px(40), px(4));
         button.setId(View.generateViewId());
         button.setAllCaps(false);
         button.setText("");
@@ -763,8 +712,6 @@ public final class LauncherActivity extends Activity {
         button.setPadding(0, 0, 0, 0);
         button.setStateListAnimator(null);
         final Button tileButton = button;
-        final String artworkPackage = "favorite:browser".equals(key) ? "com.amazon.cloud9"
-                : key.substring(key.indexOf(':') + 1);
         ((TileButton)button).trace = trace;
         ((TileButton)button).pkg = artworkPackage;
         button.setBackground(null);

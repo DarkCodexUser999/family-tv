@@ -20,14 +20,6 @@ final class LaunchRoute {
         return new LaunchRoute(pkg, activity, category, ownTask.contains(pkg));
     }
 
-    android.content.Intent intent() {
-        android.content.Intent result = new android.content.Intent(android.content.Intent.ACTION_MAIN)
-                .addCategory(category).setComponent(new android.content.ComponentName(pkg, activity));
-        if (ownTask) result.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                | android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        return result;
-    }
-
     static void preferPrimeApp(Set<String> packages) {
         if (packages.contains("com.amazon.firebat")) packages.remove("com.amazon.avod");
     }

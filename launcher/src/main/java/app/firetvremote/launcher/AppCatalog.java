@@ -21,15 +21,16 @@ final class AppCatalog {
         Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER
     };
 
-    static final class Entry {
-        final ResolveInfo info;
-        final String category;
+    interface ArtworkSource {
+        void register(String pkg, ResolveInfo info);
+    }
 
-        Entry(ResolveInfo info, String category) {
-            this.info = info;
-            this.category = category;
-        }
-
+    static Intent intent(LaunchRoute route) {
+        Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(route.category)
+                .setComponent(new android.content.ComponentName(route.pkg, route.activity));
+        if (route.ownTask) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        return intent;
     }
 
     static Set<String> hiddenPackages(Context context) {
@@ -67,27 +68,44 @@ final class AppCatalog {
         return packages;
     }
 
-    static Map<String, Entry> list(Context context) {
+    static Map<String, CatalogEntry> list(Context context, Set<String> hidden, Set<String> ownTask,
+            ArtworkSource artwork) {
         PackageManager packages = context.getPackageManager();
-        String ownPackage = context.getPackageName();
-        Map<String, Entry> apps = new LinkedHashMap<>();
+        Map<String, ResolveInfo> discovered = new LinkedHashMap<>();
+        Map<String, String> categories = new LinkedHashMap<>();
         for (String category : CATEGORIES) {
             Intent query = new Intent(Intent.ACTION_MAIN).addCategory(category);
             for (ResolveInfo result : packages.queryIntentActivities(query, 0)) {
                 if (!launchable(context, result)) continue;
-                String name = result.activityInfo.packageName;
-                if (!name.equals(ownPackage) && !apps.containsKey(name)) {
-                    apps.put(name, new Entry(result, category));
-                }
+                String pkg = result.activityInfo.packageName;
+                if (pkg.equals(context.getPackageName()) || hidden.contains(pkg)
+                        || discovered.containsKey(pkg)) continue;
+                discovered.put(pkg, result);
+                categories.put(pkg, category);
             }
         }
-        return apps;
+        LaunchRoute.preferPrimeApp(discovered.keySet());
+        Map<String, CatalogEntry> entries = new LinkedHashMap<>();
+        for (Map.Entry<String, ResolveInfo> app : discovered.entrySet()) {
+            String pkg = app.getKey();
+            ResolveInfo info = app.getValue();
+            LaunchRoute route = LaunchRoute.build(pkg, info.activityInfo.name, categories.get(pkg), ownTask);
+            if (route == null) continue;
+            try {
+                String label = info.loadLabel(packages).toString();
+                artwork.register(pkg, info);
+                entries.put(pkg, new CatalogEntry(label, route));
+            } catch (RuntimeException unavailable) {
+                Log.w("FamilyTV", "Skipping unavailable app " + pkg, unavailable);
+            }
+        }
+        return entries;
     }
 
     private static boolean launchable(Context context, ResolveInfo result) {
         ActivityInfo activity = result.activityInfo;
         return activity != null && activity.exported && activity.enabled
-                && activity.applicationInfo.enabled
+                && activity.applicationInfo != null && activity.applicationInfo.enabled
                 && (activity.permission == null || context.getPackageManager().checkPermission(
                         activity.permission, context.getPackageName()) == PackageManager.PERMISSION_GRANTED);
     }

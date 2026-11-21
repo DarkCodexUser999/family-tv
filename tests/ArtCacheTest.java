@@ -16,6 +16,9 @@ public class ArtCacheTest {
         if (cache.get("visible")==null) throw new AssertionError();
         cache.evictAll();
         if (cache.get("visible")!=null || cache.get("another")!=null) throw new AssertionError();
+        cache.close();
+        cache.put("late-result", frame);
+        if (cache.get("late-result") != null) throw new AssertionError("Closed cache was refilled");
         System.out.println("PASS: decoded byte budget, three-backdrop cap, replacement and trim");
     }
 }

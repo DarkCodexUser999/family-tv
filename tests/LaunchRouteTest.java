@@ -8,13 +8,13 @@ public class LaunchRouteTest {
     public static void main(String[] args) {
         Set<String> own = new HashSet<>(Arrays.asList("in.startv.hotstar", "com.amazon.cloud9"));
         check(!LaunchRoute.build("app.default", "Main", "launcher", own).ownTask);
-        check(LaunchRoute.build("app.default", "Main", "launcher", own).intent().flags == 0);
+        check(AppCatalog.intent(LaunchRoute.build("app.default", "Main", "launcher", own)).flags == 0);
         for (String pkg : own) {
             LaunchRoute route = LaunchRoute.build(pkg, "Chosen", "leanback", own);
             check(route.ownTask && route.activity.equals("Chosen"));
             check(route.pkg.equals(pkg) && route.category.equals("leanback"));
-            check(route.intent().flags == 0x10200000);
-            check(route.intent().component.name.equals("Chosen"));
+            check(AppCatalog.intent(route).flags == 0x10200000);
+            check(AppCatalog.intent(route).component.name.equals("Chosen"));
         }
         Set<String> prime = new HashSet<>(Arrays.asList("com.amazon.avod"));
         LaunchRoute.preferPrimeApp(prime);

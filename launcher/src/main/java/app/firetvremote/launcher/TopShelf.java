@@ -6,9 +6,9 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Future;
 
-/** All artwork I/O, sampling and rasterization happens on the UI artwork worker. */
+/** Displays the latest selection and owns its transitions and view callbacks. */
 final class TopShelf extends FrameLayout {
     FocusTrace trace;
 
@@ -18,11 +18,7 @@ final class TopShelf extends FrameLayout {
         if (trace != null) trace.draw(displayed == null ? null : selection, false);
     }
 
-    final ExecutorService worker = Executors.newSingleThreadExecutor();
-    final ArtCache cache = new ArtCache();
-    final TileArt tiles;
-    private final TmdbShelf provider;
-    private final ExecutorService network = Executors.newSingleThreadExecutor();
+    private final ArtworkLoader artwork;
     private boolean refreshing, refreshAgain;
     private final Map<String, Integer> rotations = new HashMap<>();
     private final Map<String, Integer> colors = new HashMap<>();
@@ -47,21 +43,17 @@ final class TopShelf extends FrameLayout {
     private final Paint shade = new Paint();
     private File desiredFile;
     private final Runnable settle = this::settleSelection;
-    boolean cancelled() { return closed || Thread.currentThread().isInterrupted(); }
 
     void refresh() {
         if (closed) return;
         if (refreshing) { refreshAgain = true; return; }
         refreshing = true;
-        network.execute(() -> {
-            provider.refresh(() -> post(() -> {
+        artwork.refresh(() -> post(() -> {
                 if (!closed && !suspended && selection != null) settleSelection();
-            }));
-            post(() -> {
+            }), () -> post(() -> {
                 refreshing = false;
                 if (!closed && refreshAgain) { refreshAgain = false; refresh(); }
-            });
-        });
+            }));
     }
 
     @Override protected void onSizeChanged(int w,int h,int oldW,int oldH) {
@@ -81,7 +73,6 @@ final class TopShelf extends FrameLayout {
         canvas.drawRect(0,0,getWidth(),getHeight(),gradient);
     }
 
-    private final Map<String, File> sources = new HashMap<>();
     private final ImageView image;
     private final ImageView previous;
     private android.graphics.drawable.Drawable outgoing;
@@ -91,10 +82,9 @@ final class TopShelf extends FrameLayout {
     private String displayed;
     private volatile boolean suspended;
 
-    TopShelf(Context context) {
+    TopShelf(Context context, ArtworkLoader artwork) {
         super(context);
-        tiles = new TileArt(context);
-        provider = new TmdbShelf(context);
+        this.artwork = artwork;
         setWillNotDraw(false);
         setBackgroundColor(0xff050609);
         previous = new ImageView(context);
@@ -106,44 +96,10 @@ final class TopShelf extends FrameLayout {
         image.setAlpha(0f);
     }
 
-    static int dominant(Bitmap icon) {
-        long r = 0, g = 0, b = 0, count = 0;
-        for (int y = 0; y < icon.getHeight(); y += 6) for (int x = 0; x < icon.getWidth(); x += 6) {
-            int c = icon.getPixel(x, y);
-            int hi = Math.max(Color.red(c), Math.max(Color.green(c), Color.blue(c)));
-            int lo = Math.min(Color.red(c), Math.min(Color.green(c), Color.blue(c)));
-            if (Color.alpha(c) < 128 || hi - lo < 35 || hi < 65) continue;
-            r += Color.red(c); g += Color.green(c); b += Color.blue(c); count++;
-        }
-        return count == 0 ? 0xff506e9a : Color.rgb((int)(r/count), (int)(g/count), (int)(b/count));
-    }
-
-    void register(String pkg) { sources.put(pkg, ArtworkFiles.backdrop(pkg)); }
     void tint(String pkg, int color) {
         colors.put(pkg,color);
         if (pkg.equals(selection)) { updateGradient(color); invalidate(); }
     }
-    private Bitmap load(String key, File file) {
-        synchronized (ArtCache.DECODER) {
-            return cancelled() ? null : decode(key, file);
-        }
-    }
-    private Bitmap decode(String key, File file) {
-        Bitmap bitmap = ArtworkFiles.decode(file, 1280, 720, Bitmap.Config.RGB_565);
-        if (bitmap == null || cancelled()) return null;
-        if (bitmap.getWidth()>1280 || bitmap.getHeight()>720 || bitmap.getConfig()!=Bitmap.Config.RGB_565) {
-            Bitmap frame = Bitmap.createBitmap(1280,720,Bitmap.Config.RGB_565);
-            float scale=Math.max(1280f/bitmap.getWidth(),720f/bitmap.getHeight());
-            float w=bitmap.getWidth()*scale,h=bitmap.getHeight()*scale;
-            new Canvas(frame).drawBitmap(bitmap,null,new RectF((1280-w)/2,(720-h)/2,(1280+w)/2,(720+h)/2),
-                    new Paint(Paint.FILTER_BITMAP_FLAG));
-            bitmap.recycle();
-            bitmap=frame;
-        }
-        cache.put(key,bitmap);
-        return bitmap;
-    }
-
     void show(String pkg, boolean repeat) {
         if (closed || pkg == null || pkg.equals(selection)) return;
         selection = pkg;
@@ -163,9 +119,9 @@ final class TopShelf extends FrameLayout {
         if (closed || suspended || selection==null) return;
         Integer color = colors.get(selection);
         updateGradient(color == null ? 0xff374157 : color);
-        File file = sources.get(selection);
+        File file = artwork.backdrop(selection);
         if (file == null) {
-            List<File> files = provider.images(selection);
+            List<File> files = artwork.images(selection);
             if (!files.isEmpty()) {
                 Integer last=rotations.get(selection);
                 int index=last==null ? 0 : (last + (selection.equals(rotationOwner) ? 0 : 1)) % files.size();
@@ -187,16 +143,16 @@ final class TopShelf extends FrameLayout {
     // At most one decode in flight. New selections replace the desired key.
     private void showNow(String pkg) {
         if (closed || suspended || !pkg.equals(requested) || pkg.equals(displayed)) return;
-        Bitmap hit = cache.get(pkg);
+        Bitmap hit = artwork.cached(pkg);
         if (hit != null) {
             present(pkg, hit);
             return;
         }
         if (pending != null) return;
         final File file = desiredFile;
-        pending = worker.submit(() -> {
+        pending = artwork.submit(() -> {
             boolean decode = pkg.equals(requested) && !suspended && !closed;
-            Bitmap art = decode ? load(pkg,file) : null;
+            Bitmap art = decode ? artwork.loadBackdrop(pkg,file) : null;
             post(() -> {
                 pending = null;
                 if (closed || suspended) return;
@@ -225,14 +181,9 @@ final class TopShelf extends FrameLayout {
 
     void close() {
         closed = true;
-        provider.close();
-        network.shutdownNow();
         suspend();
         outgoing = null;
         previous.setImageDrawable(null);
         image.setImageDrawable(null);
-        // Evict after queued/running artwork work; otherwise an in-flight load can refill a closed cache.
-        worker.shutdownNow();
-        cache.evictAll();
     }
 }

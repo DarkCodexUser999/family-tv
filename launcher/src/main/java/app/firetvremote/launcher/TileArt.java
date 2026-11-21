@@ -52,7 +52,7 @@ final class TileArt {
         if (icon) {
             int edge = uniformEdge(picture);
             if (edge != 0) paint.setColor(edge);
-            else paint.setShader(new LinearGradient(0, 0, w, h, TopShelf.dominant(picture), 0xff171a21, Shader.TileMode.CLAMP));
+            else paint.setShader(new LinearGradient(0, 0, w, h, ArtworkLoader.dominant(picture), 0xff171a21, Shader.TileMode.CLAMP));
             canvas.drawRect(rect, paint);
             paint.setShader(null);
         } else scale = Math.max(scale, w / (float)picture.getWidth());
