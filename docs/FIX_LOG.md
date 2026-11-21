@@ -98,3 +98,25 @@ Published code commits for issue #9
 - 4d037971ea27 refactor: retire the legacy TV pairing server
 
 Each listed commit passed its full host suite, protocol checks and both signed native APK builds before publication.
+
+## Batch 5 · Launcher ownership, build parity and mobile CI
+
+| Finding | Change | Evidence |
+|---|---|---|
+| F13 | Catalog entries snapshot labels and launch routes. Plain Java assigns configured and fallback rows. The Activity owns artwork loading and releases its workers and cache on destruction. Android focus, dialogs and dispatch stay in the UI. | Host tests cover immutable snapshots, own-task routes, missing and duplicate packages, row order, empty rows, rapid navigation, shelf replacement and late cache writes after shutdown. |
+| F15 | Both native projects target Java 8 bytecode under JDK 17. The build checks Gradle and shell settings and inspects the actual APK manifests and compiled classes. The launcher uses D8. | Both native APKs built and verified with certificate SHA-256 digest `619c734040f18e5c44da2b994efc5c726073dce65efcbcd927b7f8c9abb809c1`, matching Batch 2. The TV APK targets API 36, supports API 22, and contains no Flutter assets or native libraries. The shrink-only measurement and signing policy are in [Setup](SETUP.md). |
+| F16 | CI runs mocked restore scenarios, Flutter analysis and tests, required Dart/Java interoperability and a phone debug build. The README labels the two November 10 Fire TV screenshots and links the Flutter host render separately. | Both historical PNGs match the original 1920 × 1080 device captures byte for byte. The workflow YAML and local media links validated. |
+
+During local preparation the catalog, restore, navigation, cache, LAN ordering, pairing/bridge, discovery and protocol fixture checks passed. The integrated suite stopped at the first real TLS socket because the sandbox denied the bind. Flutter's SDK disk image could not mount here. Current physical Fire OS behavior, timing and memory use remain **UNVERIFIED**. ADB could not start its local listener.
+
+
+### Batch 5 publication completion — 21 November 2026
+
+Issue #10: https://github.com/DarkCodexUser999/family-tv/issues/10. The prior sandbox socket, SDK mount and GitHub access blockers were resolved on the owner’s Mac. Four prepared commits passed their required gates and were pushed:
+
+- 1432ca3 refactor: separate catalog rules and artwork lifetime from the launcher UI
+- 12a39af build: verify native package settings and compiled artifacts
+- 19a5ac4 ci: exercise the Flutter companion and real Java transport
+- 8611665 docs: show historical Fire TV captures alongside labeled host evidence
+
+All four passed full host/protocol checks and both signed native APK builds. The CI and screenshot revisions also passed Flutter analysis, 21 tests, required real Dart–Java interoperability, the phone debug APK build and lockfile verification. The owner then requested stopping repeated checks; this final log uses those completed results, with no further feature testing or builds. Physical Fire OS behavior, timing and PSS remain UNVERIFIED. Historical screenshots are not current device acceptance. No further batch started.
