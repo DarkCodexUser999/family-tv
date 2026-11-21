@@ -27,7 +27,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Run regression and configuration checks
+      - name: Run host regressions, build parity and restore fixtures
         run: sh tests/check-all.sh
       - name: Validate remote protocol
         run: |
@@ -47,6 +47,8 @@ jobs:
         run: sh build-launcher.sh
       - name: Build and verify remote APK
         run: sh build-launcher.sh remote
+      - name: Check packaged SDKs, bytecode and launcher contents
+        run: python3 tests/check-build-parity.py --apks
       - name: Report validation scope
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
@@ -60,3 +62,39 @@ jobs:
           playback, device memory and measured latency still need device testing.
           The runner creates a temporary development key; it is not uploaded.
           SUMMARY
+
+  mobile:
+    name: Flutter companion and Java interop
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      FLUTTER_BIN: ${{ github.workspace }}/flutter-sdk/bin/flutter
+      FAMILYTV_REQUIRE_INTEROP: '1'
+    steps:
+      - name: Check out Family TV
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the project's Flutter SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: flutter/flutter
+          ref: ab2912035e160d9cad6306df307576da6128ebdb
+          path: flutter-sdk
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Resolve locked dependencies
+        run: sh scripts/flutter.sh pub get --enforce-lockfile
+      - name: Analyze and test the phone companion
+        run: sh scripts/check-mobile.sh
+      - name: Exercise the Dart client against the Java TLS/WSS server
+        run: sh scripts/check-remote-interop.sh
+      - name: Build the phone debug APK
+        run: sh scripts/flutter.sh build apk --debug
+      - name: Verify the dependency lock
+        run: git diff --exit-code -- mobile/pubspec.lock

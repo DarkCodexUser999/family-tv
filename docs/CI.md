@@ -33,6 +33,15 @@ References: [checkout](https://github.com/actions/checkout), [setup-java](https:
 
 The D8 and apksigner SDK wrappers declare Bash as their interpreter. The build script invokes them with `bash`, rather than forcing Ubuntu's POSIX `sh` to parse Bash arrays. The first CI run exposed this Mac/Linux difference; the regression checks passed before the APK build encountered it.
 
-## Day 5 candidate checks
+## Phone companion and interoperability
 
-Updated check-lan.sh includes 29 remote bridge/expiry/bounds checks and 45 actual TLS/WSS checks. The existing workflow runs these checks after publication; final commit/CI evidence is recorded on the live project card after completion. Flutter analyzer, 21 unit/widget/TLS tests and the separate Dart/Java interoperability check run locally using scripts/check-mobile.sh and scripts/check-remote-interop.sh. Mobile CI expansion stays on Day 13; it is not claimed here.
+The separate Ubuntu mobile job checks out the Flutter revision recorded in `mobile/.metadata`, resolves the committed dependency lock, runs the analyzer and Flutter tests, and builds an Android debug APK. Its interoperability test starts the real Java HTTPS/WSS transport, connects the Dart client with a pinned certificate, and exercises command delivery and foreground gating. A runner without a private IPv4 address fails this job. Locally, setting `FAMILYTV_REQUIRE_INTEROP=1` requires the same coverage.
+
+```sh
+sh scripts/flutter.sh pub get --enforce-lockfile
+sh scripts/check-mobile.sh
+FAMILYTV_REQUIRE_INTEROP=1 sh scripts/check-remote-interop.sh
+sh scripts/flutter.sh build apk --debug
+```
+
+The native job runs the mocked ADB restore fixtures in `tests/check-all.sh`. After building both native APKs, it runs `python3 tests/check-build-parity.py --apks` to inspect their packaged metadata, compiled class versions and launcher contents. GitHub run results and physical-device results are tracked separately.

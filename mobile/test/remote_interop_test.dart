@@ -33,6 +33,9 @@ void main() {
         ...n.addresses,
     ].where((ip) => TvEndpoint.privateAddress(ip.address)).toList();
     if (addresses.isEmpty) {
+      if (Platform.environment['FAMILYTV_REQUIRE_INTEROP'] == '1') {
+        throw StateError('CI interop requires a private IPv4 interface');
+      }
       markTestSkipped('No private IPv4 interface for host-only interop');
       return;
     }
