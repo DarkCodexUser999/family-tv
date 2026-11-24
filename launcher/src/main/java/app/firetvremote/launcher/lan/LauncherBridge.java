@@ -6,6 +6,7 @@ public final class LauncherBridge {
     public interface Ui { void post(Runnable task); boolean perform(String action); }
     public interface Signal { void changed(); }
     public volatile boolean tmdbConfigured;
+    public volatile AppsEndpoint apps;
     private volatile Ui ui;
     private volatile boolean busy;
     private volatile String focused;

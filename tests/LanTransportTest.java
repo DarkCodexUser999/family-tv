@@ -139,6 +139,20 @@ public final class LanTransportTest {
             check(request("GET","/v1/events","Upgrade: websocket\r\n").startsWith("HTTP/1.1 401"),"upgrade requires auth");
             check(request("GET","/v1/events","Authorization: Bearer "+token+"\r\nUpgrade: websocket\r\n").startsWith("HTTP/1.1 404"),"no premature WS upgrade");
             check(request("POST","/v1/pair",headers+"\r\n"+body).startsWith("HTTP/1.1 401"),"wire replay rejected");
+            LauncherBridge bridge=new LauncherBridge();
+            java.util.List<AppsEndpoint.App> catalog=new java.util.ArrayList<>();
+            for(int i=0;i<30;i++)catalog.add(new AppsEndpoint.App("test.app"+i,"App "+i,new byte[]{1,2,3}));
+            bridge.apps=new AppsEndpoint(123,catalog);server.enableEvents(bridge);
+            String auth="Authorization: Bearer "+token+"\r\n";
+            check(request("GET","/v1/apps","").startsWith("HTTP/1.1 401"),"catalog requires token");
+            check(request("GET","/v1/apps",auth).contains("123_25"),"bounded first page");
+            check(request("GET","/v1/apps?cursor=123_25&limit=5",auth).contains("test.app29"),"second page");
+            check(request("GET","/v1/apps?cursor=122_25",auth).startsWith("HTTP/1.1 409"),"stale cursor");
+            for(String q:new String[]{"limit=26","token=secret","limit=1&limit=2","cursor=%31","limit=1&cursor=123_25"})
+                check(request("GET","/v1/apps?"+q,auth).startsWith("HTTP/1.1 400"),"query bounds: "+q);
+            check(request("GET","/v1/apps/test.app0/icon",auth).contains("image/png"),"authenticated thumbnail");
+            check(request("GET","/v1/apps/test.hidden/icon",auth).startsWith("HTTP/1.1 404"),"hidden/unknown thumbnail");
+            check(request("GET","/v1/apps/test.app0/icon","").startsWith("HTTP/1.1 401"),"thumbnail requires token");
             phones.revokeAll();
             check(request("GET","/v1/status","Authorization: Bearer "+token+"\r\n").startsWith("HTTP/1.1 401"),"wire revoked token rejected");
             check(!request("GET","/v1/info","").contains("pairingSessionId"),"consumed session hidden");

@@ -1,6 +1,6 @@
 # Family TV Remote progress
 
-- Build day: **5 / 14 — code approved and published; physical acceptance blocked**, issue #5.
+- Build day: **6–7 / 14 — implementation in progress**. Previous checkpoint: **5 / 14 — code approved and published; physical acceptance blocked**, issue #5.
 - Current milestone: Day 5 foreground-only WSS remote pad published after owner approval; local tests/builds pass. Days 2–5 physical gates remain open.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
@@ -86,3 +86,9 @@ Board: https://github.com/users/DarkCodexUser999/projects/1 (family-tv; public).
 - No physical iPhone/signing setup; simulator success cannot establish LAN parity. No emulator configured.
 - NanoHTTPD core was reviewed on Day 2; bounded NanoWSD source and patches reviewed in the Day 5 candidate. No independent security audit or Fire OS performance acceptance is claimed.
 - Flutter and tool caches stay on SSD where possible; macOS preferences/temporary files can still use internal storage. No secrets or signing material are in the repo.
+
+## Days 6–7 — authorized together (2026-11-24)
+
+Issues #11 and #12 track the app grid and Android integration checkpoint. Review Batches 1–5 were published through `ad73f04`; stick-only gates remain open.
+
+First increment: authenticated cached app pages (25/page, at most 64 visible apps) and PNG thumbnails (96×54, <=8 KiB each, <=512 KiB retained). Thumbnail preparation happens on the artwork worker only with Remote access enabled. The toggle recreates the Activity to rebuild/release this optional snapshot. No new dependency, process, polling, system privilege or app-data change. Real TLS tests cover auth, pagination, stale cursors, malformed queries and unavailable icons. App launches and phone grid follow in the next increment.

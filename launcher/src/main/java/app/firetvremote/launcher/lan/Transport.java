@@ -18,6 +18,7 @@ public final class Transport extends NanoWSD {
     private PairingStore phones;
     private PairingWindow pairing;
     private EventHub events;
+    private LauncherBridge bridge;
     private final Semaphore httpSlots=new Semaphore(2);
     private final ThreadLocal<Connection> connection=new ThreadLocal<>();
     private static final class Connection {
@@ -50,7 +51,7 @@ public final class Transport extends NanoWSD {
         this(address,tls,id,phones,pairing); enableEvents(bridge);
     }
     void enableEvents(LauncherBridge bridge) {
-        runner.enableEvents();events=new EventHub(bridge,() -> System.nanoTime()/1000000L);
+        this.bridge=bridge;runner.enableEvents();events=new EventHub(bridge,() -> System.nanoTime()/1000000L);
         if(phones!=null)phones.onRevoked=events::revoke;
     }
     @Override public void stop(){
@@ -100,12 +101,13 @@ public final class Transport extends NanoWSD {
         if (!(host + ":" + getListeningPort()).equals(session.getHeaders().get("host"))) {
             return error(Response.Status.BAD_REQUEST, "invalid_request");
         }
-        if (session.getQueryParameterString()!=null || session.getHeaders().containsKey("transfer-encoding")
+        if (session.getQueryParameterString()!=null && !"/v1/apps".equals(session.getUri()) || session.getHeaders().containsKey("transfer-encoding")
                 || session.getHeaders().containsKey("expect")) return error(Response.Status.BAD_REQUEST,"invalid_request");
         if ("/v1/pair".equals(session.getUri()) && pairing!=null) return pair(session);
         if (!"/v1/info".equals(session.getUri())) {
             String phone=AuthFilter.phone(phones,session.getHeaders().get("authorization"));
             if(phone==null)return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            if(bridge!=null && session.getUri().startsWith("/v1/apps"))return apps(session);
             if(events!=null && "/v1/status".equals(session.getUri()) && session.getMethod()==Method.GET && emptyBody(session))
                 return json(Response.Status.OK,events.status());
             if(events!=null && "/v1/events".equals(session.getUri()))return upgrade(session,phone);
@@ -116,6 +118,35 @@ public final class Transport extends NanoWSD {
         String id=pairing==null?null:pairing.sessionId();
         return json(Response.Status.OK,"{\"apiVersion\":1,\"installationId\":\""+installationId
                 +"\",\"pairingOpen\":"+(id!=null)+(id==null?"":",\"pairingSessionId\":\""+id+"\"")+"}");
+    }
+    private Response apps(IHTTPSession session) {
+        AppsEndpoint snapshot=bridge.apps;
+        if(snapshot==null)return error(Response.Status.SERVICE_UNAVAILABLE,"catalog_unavailable");
+        if(session.getMethod()!=Method.GET || !emptyBody(session))return error(Response.Status.BAD_REQUEST,"invalid_request");
+        String path=session.getUri();
+        if(path.equals("/v1/apps")) {
+            String query=session.getQueryParameterString();
+            // Only canonical query strings; reject duplicate, unknown and encoded parameters.
+            if(query!=null && !query.matches("(?:cursor=[0-9]{1,15}_[0-9]{1,2}(?:&limit=(?:[1-9]|1[0-9]|2[0-5]))?|limit=(?:[1-9]|1[0-9]|2[0-5]))"))
+                return error(Response.Status.BAD_REQUEST,"invalid_request");
+            String cursor=null;int limit=25;
+            if(query!=null)for(String field:query.split("&")) {
+                if(field.startsWith("cursor="))cursor=field.substring(7);
+                else if(field.startsWith("limit="))limit=Integer.parseInt(field.substring(6));
+            }
+            try{return json(Response.Status.OK,snapshot.page(cursor,limit));}
+            catch(IllegalStateException stale){return error(Response.Status.CONFLICT,"stale_catalog");}
+            catch(IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
+        }
+        if(path.startsWith("/v1/apps/") && path.endsWith("/icon")) {
+            String pkg=path.substring(9,path.length()-5);
+            byte[] icon=AppsEndpoint.packageName(pkg)?snapshot.icon(pkg):null;
+            if(icon!=null) {
+                Response response=newFixedLengthResponse(Response.Status.OK,"image/png",new java.io.ByteArrayInputStream(icon),icon.length);
+                response.closeConnection(true);response.addHeader("Cache-Control","no-store");return response;
+            }
+        }
+        return error(Response.Status.NOT_FOUND,"not_found");
     }
     private boolean emptyBody(IHTTPSession session){return !session.getHeaders().containsKey("content-length") || "0".equals(session.getHeaders().get("content-length"));}
     private Response upgrade(IHTTPSession session,String phone){

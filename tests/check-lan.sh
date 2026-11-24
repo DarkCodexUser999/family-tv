@@ -21,6 +21,7 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairingWindow.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairJson.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AuthFilter.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AppsEndpoint.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/LauncherBridge.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ActionMessage.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ActionDispatcher.java" \

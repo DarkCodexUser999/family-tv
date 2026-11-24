@@ -138,6 +138,17 @@ public final class LauncherActivity extends Activity {
             return;
         }
 
+        List<app.firetvremote.launcher.lan.AppsEndpoint.App> phoneApps = new ArrayList<>();
+        if (app.firetvremote.launcher.lan.LanService.enabled(this))
+        for (CatalogEntry entry : installed.values()) {
+            if (phoneApps.size() >= app.firetvremote.launcher.lan.AppsEndpoint.MAX_APPS) break;
+            Bitmap thumbnail = artwork.loadTile("phone:" + entry.route.pkg, entry.route.pkg, 96, 54);
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            if (thumbnail != null) thumbnail.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+            phoneApps.add(new app.firetvremote.launcher.lan.AppsEndpoint.App(entry.route.pkg, entry.label, bytes.toByteArray()));
+        }
+        final app.firetvremote.launcher.lan.AppsEndpoint phoneCatalog =
+                new app.firetvremote.launcher.lan.AppsEndpoint(android.os.SystemClock.elapsedRealtime(), phoneApps);
         List<List<TileData>> prepared = new ArrayList<>();
         for (List<CatalogEntry> row : CatalogRows.arrange(installed, RowConfig.read(this))) {
             List<TileData> tiles = new ArrayList<>();
@@ -151,6 +162,7 @@ public final class LauncherActivity extends Activity {
         }
         runOnUiThread(() -> {
             if (isDestroyed() || isFinishing()) return;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps = phoneCatalog;
             rowData.addAll(prepared);
             buildHome();
             restoreFocus(restore);
@@ -637,7 +649,11 @@ public final class LauncherActivity extends Activity {
                 .setItems(options.toArray(new String[0]), (dialog, choice) -> {
                     if (choice == 6) { recreate(); return; }
                     if (choice == 5) { openFireSettings(); return; }
-                    if (choice == 0) app.firetvremote.launcher.lan.LanService.setEnabled(this, !enabled);
+                    if (choice == 0) {
+                        app.firetvremote.launcher.lan.LanService.setEnabled(this, !enabled);
+                        app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps = null;
+                        recreate(); // Rebuild the phone snapshot only when explicitly enabled.
+                    }
                     else if (choice == 1) showRemoteDialog(new AlertDialog.Builder(this)
                             .setTitle("Remote access").setMessage(app.firetvremote.launcher.lan.LanService.connectionDetails(this))
                             .setPositiveButton("Close", null));
