@@ -171,7 +171,8 @@
               "default": 25
             }
           }
-        ]
+        ],
+        "description": "Immutable non-hidden catalog, at most 64 entries and 25 per page. Canonical query order: cursor then limit. A stale cursor returns 409; refresh from page one."
       }
     },
     "/v1/actions": {
@@ -257,7 +258,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Foreground-only, revision-bound request. No arbitrary intents. ACK means the existing tile click was dispatched, not app first frame or login. Repeated request IDs do not launch twice. Never retry automatically."
       }
     },
     "/v1/rows": {
@@ -406,6 +408,40 @@
           }
         ],
         "description": "Body revision must match If-Match; stale edits return 409. Row package IDs must be globally unique and installed; validation beyond schema is server-side."
+      }
+    },
+    "/v1/apps/{package}/icon": {
+      "parameters": [
+        {
+          "name": "package",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$",
+            "maxLength": 160
+          }
+        }
+      ],
+      "get": {
+        "operationId": "appIcon",
+        "responses": {
+          "200": {
+            "description": "Cached PNG thumbnail, 96\u00d754, at most 8192 bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8192
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Authenticated error; missing/hidden apps return 404"
+          }
+        }
       }
     }
   }

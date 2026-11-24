@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/api/models.dart';
+import '../../core/api/apps_api.dart';
+import '../apps/apps_controller.dart';
+import '../apps/apps_screen.dart';
 import 'remote_controller.dart';
 
 class RemoteScreen extends StatefulWidget {
@@ -58,7 +61,30 @@ class _RemoteScreenState extends State<RemoteScreen>
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: c,
     builder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('Family TV remote')),
+      appBar: AppBar(
+        title: const Text('Family TV remote'),
+        actions: [
+          IconButton(
+            tooltip: 'TV apps',
+            icon: const Icon(Icons.apps),
+            onPressed: () async {
+              c.suspend();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AppsScreen(
+                    controller: AppsController(
+                      PinnedAppsApi(),
+                      widget.credential,
+                    ),
+                  ),
+                ),
+              );
+              if (mounted) c.resume();
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

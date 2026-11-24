@@ -32,7 +32,14 @@ public final class LauncherActivity extends Activity {
     private final Map<String, Button> focusTargets = new LinkedHashMap<>();
     private static final String SETTINGS_KEY = "settings";
     private Button gear;
-    private boolean catalogFailed;
+    private boolean catalogFailed, catalogDirty;
+    private final android.content.BroadcastReceiver packageChanges=new android.content.BroadcastReceiver(){
+        @Override public void onReceive(android.content.Context context,Intent intent){
+            catalogDirty=true;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps=null;
+            if(!isSettingsLaunchPaused && !isFinishing())recreate();
+        }
+    };
     private boolean isSettingsLaunchPaused;
     private boolean settingsOpening;
     private Button firstFavorite;
@@ -100,6 +107,11 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps=null;
+        android.content.IntentFilter changes=new android.content.IntentFilter();
+        changes.addAction(Intent.ACTION_PACKAGE_ADDED);changes.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        changes.addAction(Intent.ACTION_PACKAGE_CHANGED);changes.addDataScheme("package");
+        registerReceiver(packageChanges,changes);
         hiddenPackages = AppCatalog.hiddenPackages(this);
         ownTaskPackages = AppCatalog.readPackages(this, "own-task-apps.txt");
 
@@ -131,7 +143,7 @@ public final class LauncherActivity extends Activity {
         } catch (RuntimeException error) {
             Log.w(LOG_TAG, "App discovery unavailable", error);
             runOnUiThread(() -> {
-                if (isDestroyed() || isFinishing()) return;
+                if (catalogDirty || isDestroyed() || isFinishing()) return;
                 catalogFailed = true;
                 buildHome();
             });
@@ -161,7 +173,7 @@ public final class LauncherActivity extends Activity {
             prepared.add(tiles);
         }
         runOnUiThread(() -> {
-            if (isDestroyed() || isFinishing()) return;
+            if (catalogDirty || isDestroyed() || isFinishing()) return;
             app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps = phoneCatalog;
             rowData.addAll(prepared);
             buildHome();
@@ -290,7 +302,7 @@ public final class LauncherActivity extends Activity {
                 final Bitmap result = art;
                 int color = result == null ? 0xff374157 : ArtworkLoader.dominant(result);
                 runOnUiThread(() -> {
-                    if (isDestroyed() || isFinishing()) return;
+                    if (catalogDirty || isDestroyed() || isFinishing()) return;
                     target.requestingArt = false;
                     backdrop.tint(tile.pkg,color);
                     if (result != null && tile.button == target && visibleRow(row)) target.setArt(result);
@@ -554,6 +566,7 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if(catalogDirty){recreate();return;}
         isSettingsLaunchPaused = false;
         backdrop.resume();
         schedulePreparation();
@@ -599,6 +612,7 @@ public final class LauncherActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        unregisterReceiver(packageChanges);
         pairUi.removeCallbacks(pairExpiry);
         settingsOpening = false;
         scene.removeCallbacks(launchSettings);
@@ -625,6 +639,17 @@ public final class LauncherActivity extends Activity {
 
     private final app.firetvremote.launcher.lan.LauncherBridge.Ui lanUi=new app.firetvremote.launcher.lan.LauncherBridge.Ui(){
         @Override public void post(Runnable task){pairUi.post(task);}
+        @Override public boolean launch(String pkg){
+            if(isFinishing() || isSettingsLaunchPaused || pendingTile!=null || remoteDialog!=null || settingsOpening)return false;
+            for(int row=0;row<rowData.size();row++)for(int col=0;col<rowData.get(row).size();col++){
+                TileData tile=rowData.get(row).get(col);
+                if(!tile.pkg.equals(pkg))continue;
+                if(tile.button==null)attachTile(row,col);
+                select(row,col);
+                // Reuse the existing feedback and launch callback; artwork remains asynchronous.
+                return tile.button!=null && tile.button.isFocused() && tile.button.performClick();
+            }return false;
+        }
         @Override public boolean perform(String action){
             if(!app.firetvremote.launcher.lan.ActionMessage.allowed(action)||isFinishing())return false;
             handleFamilyAction(action);return true;

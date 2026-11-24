@@ -25,7 +25,7 @@ public final class ActionMessage {
                 || !(payload.get("sentAtMs") instanceof Long) || !(payload.get("epoch") instanceof Long)) throw new IllegalArgumentException();
         return new ActionMessage(id,action,(Long)payload.get("sentAtMs"),(Long)payload.get("epoch"));
     }
-    private static final class Reader {
+    static final class Reader {
         final String text; int pos;
         Reader(String text) { if(text.length()>4096) throw new IllegalArgumentException(); this.text=text; }
         void space() { while(pos<text.length() && " \r\n\t".indexOf(text.charAt(pos))>=0)pos++; }

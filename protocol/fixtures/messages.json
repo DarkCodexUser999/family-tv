@@ -27,5 +27,8 @@
   {"name": "WS command mismatch", "schema": "event", "valid": false, "value": {"v": 1, "type": "action", "id": "example-1", "payload": {"id": "other", "action": "OK", "sentAtMs": 1000, "epoch": 2}}},
   {"name": "hidden cross-row duplicate", "schema": "Rows", "valid": false, "value": {"apiVersion": 1, "revision": 0, "rows": [{"packages": ["com.example.video"]}, {"packages": ["com.example.video"]}]}},
   {"name": "WS state", "schema": "event", "valid": true, "value": {"v": 1, "type": "state", "id": "s1", "payload": {"foreground": true, "canNavigate": true, "package": null, "epoch": 2, "serverTimeMs": 1000}}},
-  {"name": "WS controls while background", "schema": "RemoteState", "valid": false, "value": {"foreground": false, "canNavigate": true, "package": null, "epoch": 2, "serverTimeMs": 1000}}
+  {"name": "WS controls while background", "schema": "RemoteState", "valid": false, "value": {"foreground": false, "canNavigate": true, "package": null, "epoch": 2, "serverTimeMs": 1000}},
+  {"name":"catalog launch","schema":"Launch","valid":true,"value":{"id":"open-1","revision":123}},
+  {"name":"unversioned launch","schema":"Launch","valid":false,"value":{"id":"open-1"}},
+  {"name":"arbitrary launch component","schema":"Launch","valid":false,"value":{"id":"open-1","revision":123,"component":"anything"}}
 ]

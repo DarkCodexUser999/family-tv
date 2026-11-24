@@ -153,6 +153,20 @@ public final class LanTransportTest {
             check(request("GET","/v1/apps/test.app0/icon",auth).contains("image/png"),"authenticated thumbnail");
             check(request("GET","/v1/apps/test.hidden/icon",auth).startsWith("HTTP/1.1 404"),"hidden/unknown thumbnail");
             check(request("GET","/v1/apps/test.app0/icon","").startsWith("HTTP/1.1 401"),"thumbnail requires token");
+            final int[] opened={0};
+            LauncherBridge.Ui ui=new LauncherBridge.Ui(){
+                public void post(Runnable r){r.run();} public boolean perform(String action){return true;}
+                public boolean launch(String pkg){opened[0]++;return true;}
+            };bridge.resume(ui);
+            String launch="{\"id\":\"open1\",\"revision\":123}";
+            String launchHeaders=auth+"Content-Type: application/json\r\nContent-Length: "+launch.length()+"\r\n\r\n"+launch;
+            check(request("POST","/v1/apps/test.app0/launch",launchHeaders).contains("\"accepted\":true"),"real TLS launch ACK");
+            check(request("POST","/v1/apps/test.app0/launch",launchHeaders).contains("\"accepted\":true") && opened[0]==1,"duplicate not launched twice");
+            check(request("POST","/v1/apps/test.app1/launch",launchHeaders).contains("invalid_request"),"request ID target binding");
+            check(request("POST","/v1/apps/test.hidden/launch",launchHeaders.replace("open1","open2")).contains("not_found"),"hidden launch rejected");
+            check(request("POST","/v1/apps/test.app0/launch",launchHeaders.replace(":123",":122").replace("open1","open3")).contains("stale_catalog"),"old revision rejected");
+            bridge.pause(ui);
+            check(request("POST","/v1/apps/test.app0/launch",launchHeaders.replace("open1","open4")).contains("ui_unavailable"),"background launch rejected");
             phones.revokeAll();
             check(request("GET","/v1/status","Authorization: Bearer "+token+"\r\n").startsWith("HTTP/1.1 401"),"wire revoked token rejected");
             check(!request("GET","/v1/info","").contains("pairingSessionId"),"consumed session hidden");

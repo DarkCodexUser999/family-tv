@@ -19,6 +19,7 @@ public final class Transport extends NanoWSD {
     private PairingWindow pairing;
     private EventHub events;
     private LauncherBridge bridge;
+    private AppLaunch launches;
     private final Semaphore httpSlots=new Semaphore(2);
     private final ThreadLocal<Connection> connection=new ThreadLocal<>();
     private static final class Connection {
@@ -51,7 +52,7 @@ public final class Transport extends NanoWSD {
         this(address,tls,id,phones,pairing); enableEvents(bridge);
     }
     void enableEvents(LauncherBridge bridge) {
-        this.bridge=bridge;runner.enableEvents();events=new EventHub(bridge,() -> System.nanoTime()/1000000L);
+        this.bridge=bridge;launches=new AppLaunch(bridge);runner.enableEvents();events=new EventHub(bridge,() -> System.nanoTime()/1000000L);
         if(phones!=null)phones.onRevoked=events::revoke;
     }
     @Override public void stop(){
@@ -107,7 +108,7 @@ public final class Transport extends NanoWSD {
         if (!"/v1/info".equals(session.getUri())) {
             String phone=AuthFilter.phone(phones,session.getHeaders().get("authorization"));
             if(phone==null)return error(Response.Status.UNAUTHORIZED,"unauthorized");
-            if(bridge!=null && session.getUri().startsWith("/v1/apps"))return apps(session);
+            if(bridge!=null && session.getUri().startsWith("/v1/apps"))return apps(session,phone);
             if(events!=null && "/v1/status".equals(session.getUri()) && session.getMethod()==Method.GET && emptyBody(session))
                 return json(Response.Status.OK,events.status());
             if(events!=null && "/v1/events".equals(session.getUri()))return upgrade(session,phone);
@@ -119,11 +120,12 @@ public final class Transport extends NanoWSD {
         return json(Response.Status.OK,"{\"apiVersion\":1,\"installationId\":\""+installationId
                 +"\",\"pairingOpen\":"+(id!=null)+(id==null?"":",\"pairingSessionId\":\""+id+"\"")+"}");
     }
-    private Response apps(IHTTPSession session) {
+    private Response apps(IHTTPSession session,String phone) {
         AppsEndpoint snapshot=bridge.apps;
         if(snapshot==null)return error(Response.Status.SERVICE_UNAVAILABLE,"catalog_unavailable");
-        if(session.getMethod()!=Method.GET || !emptyBody(session))return error(Response.Status.BAD_REQUEST,"invalid_request");
         String path=session.getUri();
+        if(path.startsWith("/v1/apps/") && path.endsWith("/launch"))return launch(session,phone,path);
+        if(session.getMethod()!=Method.GET || !emptyBody(session))return error(Response.Status.BAD_REQUEST,"invalid_request");
         if(path.equals("/v1/apps")) {
             String query=session.getQueryParameterString();
             // Only canonical query strings; reject duplicate, unknown and encoded parameters.
@@ -147,6 +149,30 @@ public final class Transport extends NanoWSD {
             }
         }
         return error(Response.Status.NOT_FOUND,"not_found");
+    }
+    private Response launch(IHTTPSession session,String phone,String path) {
+        String pkg=path.substring(9,path.length()-7);
+        if(!AppsEndpoint.packageName(pkg) || session.getMethod()!=Method.POST
+                || !"application/json".equals(session.getHeaders().get("content-type")))return error(Response.Status.BAD_REQUEST,"invalid_request");
+        try {
+            String length=session.getHeaders().get("content-length");
+            if(length==null || !length.matches("[0-9]{1,4}"))throw new IllegalArgumentException();
+            int size=Integer.parseInt(length);if(size<1 || size>1024)throw new IllegalArgumentException();
+            byte[] bytes=new byte[size];int offset=0,n;
+            while(offset<size){n=session.getInputStream().read(bytes,offset,size-offset);if(n<0)throw new IOException();offset+=n;}
+            String body=new String(bytes,java.nio.charset.StandardCharsets.UTF_8);
+            ActionMessage.Reader reader=new ActionMessage.Reader(body);
+            java.util.Map<String,Object> fields=reader.object(0);reader.space();
+            if(reader.pos!=body.length() || fields.size()!=2 || !(fields.get("id") instanceof String)
+                    || !((String)fields.get("id")).matches("[A-Za-z0-9_-]{1,64}") || !(fields.get("revision") instanceof Long))
+                throw new IllegalArgumentException();
+            String id=(String)fields.get("id"), authorization=session.getHeaders().get("authorization");
+            String result=launches.launch(phone,pkg,id,(Long)fields.get("revision"),
+                    () -> phone.equals(AuthFilter.phone(phones,authorization)));
+            if("ok".equals(result))return json(Response.Status.OK,"{\"apiVersion\":1,\"id\":\""+id+"\",\"accepted\":true}");
+            return error("unauthorized".equals(result)?Response.Status.UNAUTHORIZED:
+                    "not_found".equals(result)?Response.Status.NOT_FOUND:Response.Status.CONFLICT,result);
+        }catch(IOException|IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
     }
     private boolean emptyBody(IHTTPSession session){return !session.getHeaders().containsKey("content-length") || "0".equals(session.getHeaders().get("content-length"));}
     private Response upgrade(IHTTPSession session,String phone){

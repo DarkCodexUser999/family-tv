@@ -46,7 +46,8 @@ final class HeaderInput extends InputStream {
 
     private void configureBody() throws IOException {
         String[] lines = new String(header,0,size,java.nio.charset.StandardCharsets.US_ASCII).split("\r\n");
-        if (!lines[0].equals("POST /v1/pair HTTP/1.1")) return;
+        if (!lines[0].equals("POST /v1/pair HTTP/1.1")
+                && !lines[0].matches("POST /v1/apps/[A-Za-z0-9_.]{1,160}/launch HTTP/1.1")) return;
         for(int i=1;i<lines.length;i++) if(lines[i].toLowerCase(java.util.Locale.ROOT).startsWith("content-length:")) {
             String value=lines[i].substring(lines[i].indexOf(':')+1).trim();
             if(!value.matches("[0-9]{1,4}")) throw new IOException("Invalid body length");
