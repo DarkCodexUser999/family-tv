@@ -59,12 +59,14 @@ abstract interface class AppsApi {
 
 class PinnedAppsApi implements AppsApi {
   final _clients = <HttpClient>{};
-  Future<Uint8List> _request(
+  Future<Uint8List> request(
     PairCredential c,
     String path, {
     String? cursor,
     Map<String, Object>? body,
     bool image = false,
+    String? method,
+    String? ifMatch,
   }) async {
     final client = PinnedTvApi.clientFor(c.endpoint, c.pinHash);
     _clients.add(client);
@@ -76,7 +78,7 @@ class PinnedAppsApi implements AppsApi {
               queryParameters: cursor == null ? null : {'cursor': cursor},
             );
         final request = await client.openUrl(
-          body == null ? 'GET' : 'POST',
+          method ?? (body == null ? 'GET' : 'POST'),
           uri,
         );
         request.followRedirects = false;
@@ -85,8 +87,14 @@ class PinnedAppsApi implements AppsApi {
           HttpHeaders.authorizationHeader,
           'Bearer ${c.token}',
         );
+        if (ifMatch != null) {
+          request.headers.set(HttpHeaders.ifMatchHeader, ifMatch);
+        }
         if (body != null) {
           final bytes = utf8.encode(jsonEncode(body));
+          if (bytes.length > 8192) {
+            throw const AppFailure('input', 'The changes are too large.');
+          }
           request.headers.set(
             HttpHeaders.contentTypeHeader,
             'application/json',
@@ -115,6 +123,18 @@ class PinnedAppsApi implements AppsApi {
               'not_found',
               'This app is unavailable. Refresh the app list.',
             ),
+            503 when ifMatch != null => const AppFailure(
+              'unavailable',
+              'The TV could not save these rows. Your draft is kept; reload TV rows before retrying.',
+            ),
+            400 => const AppFailure(
+              'input',
+              'The TV rejected these changes. Check row limits and refresh the installed apps.',
+            ),
+            409 when ifMatch != null => const AppFailure(
+              'conflict',
+              'Another phone changed the TV rows. Your draft is kept. Reload TV rows before saving again.',
+            ),
             409 => const AppFailure(
               'unavailable',
               'Open Family TV on the TV and refresh the app list before retrying.',
@@ -142,7 +162,7 @@ class PinnedAppsApi implements AppsApi {
   Future<AppsPage> page(PairCredential c, String? cursor) async {
     try {
       return AppsPage.fromJson(
-        jsonDecode(utf8.decode(await _request(c, '/v1/apps', cursor: cursor)))
+        jsonDecode(utf8.decode(await request(c, '/v1/apps', cursor: cursor)))
             as Map<String, dynamic>,
       );
     } catch (error) {
@@ -156,7 +176,7 @@ class PinnedAppsApi implements AppsApi {
 
   @override
   Future<Uint8List> icon(PairCredential c, String package) =>
-      _request(c, '/v1/apps/$package/icon', image: true);
+      request(c, '/v1/apps/$package/icon', image: true);
   @override
   Future<void> launch(
     PairCredential c,
@@ -166,7 +186,7 @@ class PinnedAppsApi implements AppsApi {
   ) async {
     final data = jsonDecode(
       utf8.decode(
-        await _request(
+        await request(
           c,
           '/v1/apps/$package/launch',
           body: {'id': id, 'revision': revision},

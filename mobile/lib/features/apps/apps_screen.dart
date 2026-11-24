@@ -3,16 +3,21 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import 'apps_controller.dart';
+import '../../core/api/rows_api.dart';
+import '../rows/rows_controller.dart';
+import '../rows/rows_screen.dart';
 
 class AppsScreen extends StatefulWidget {
-  const AppsScreen({super.key, required this.controller});
+  const AppsScreen({super.key, required this.controller, this.rowsFactory});
   final AppsController controller;
+  final RowsApi Function()? rowsFactory;
   @override
   State<AppsScreen> createState() => _AppsScreenState();
 }
 
 class _AppsScreenState extends State<AppsScreen> with WidgetsBindingObserver {
   String query = '';
+  bool _rowsOpen = false;
   AppsController get c => widget.controller;
   @override
   void initState() {
@@ -23,7 +28,7 @@ class _AppsScreenState extends State<AppsScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed && !_rowsOpen) {
       c.resume();
     } else {
       c.suspend();
@@ -48,6 +53,40 @@ class _AppsScreenState extends State<AppsScreen> with WidgetsBindingObserver {
         appBar: AppBar(
           title: const Text('TV apps'),
           actions: [
+            IconButton(
+              tooltip: 'Edit TV rows',
+              icon: const Icon(Icons.view_agenda_outlined),
+              onPressed:
+                  c.loading ||
+                      c.pending != null ||
+                      c.needsRefresh ||
+                      c.error?.code == 'unauthorized'
+                  ? null
+                  : () async {
+                      _rowsOpen = true;
+                      c.suspend();
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RowsScreen(
+                            controller: RowsController(
+                              widget.rowsFactory?.call() ?? PinnedRowsApi(),
+                              c.credential,
+                              c.apps,
+                            ),
+                          ),
+                        ),
+                      );
+                      if (mounted) {
+                        _rowsOpen = false;
+                        if (WidgetsBinding.instance.lifecycleState ==
+                            AppLifecycleState.resumed) {
+                          c.resume();
+                          await c.refresh();
+                        }
+                      }
+                    },
+            ),
             IconButton(
               tooltip: 'Refresh apps',
               onPressed: c.loading || c.pending != null ? null : c.refresh,

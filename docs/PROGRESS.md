@@ -1,7 +1,7 @@
 # Family TV Remote progress
 
-- Build day: **7 / 14 — Days 6–7 host implementation complete; physical acceptance blocked**, issues #11/#12.
-- Current milestone: Week 1 Android alpha implemented, built and published. Final CI/release links and project status are verified on the GitHub board; Days 2–7 physical gates remain open.
+- Build day: **9 / 14 — Days 8–9 source/host work; native iOS and physical acceptance blocked**, issues #13/#14.
+- Current milestone: iPhone connection recovery and phone row editor over authenticated revisioned atomic TV overrides. Days 2–9 physical gates remain open; full Xcode is unavailable.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
@@ -119,3 +119,9 @@ Day 8 local evidence: analyzer clean, 34 phone tests passed, iOS plist/Bonjour/A
 ## Day 9 — revisioned rows (2026-11-24)
 
 Issue #14: the authenticated row endpoint reads a cached immutable document and writes private atomic `remote-rows.json` overrides over packaged defaults. It enforces 1–4 rows, ≤6 packages/row, global uniqueness, current non-hidden catalog targets and matching body revision/If-Match. Concurrent stale writes return 409; failed writes leave the published state unchanged. TV application is event-driven: recreate when safe or on next return, using the existing package-focus restoration; launch flags, hidden assets, app data and restore are untouched. Host fake-disk tests cover validation, interrupted writes/reload and concurrent phones; real TLS tests cover GET/PUT/auth/conflict/hidden targets. Phone editing UI follows next. Actual Android AtomicFile crash recovery and TV rendering/focus require hardware.
+
+Day 9 phone editor: reorder apps/entire rows, move between rows, choose unassigned apps and Save. Unsaved exit/reload requires confirmation; conflicts, uncertain background saves and write failures keep the draft and block silent retries. Opening the editor suspends app-grid requests and a safe return refreshes metadata. A failed catalog refresh now leaves editing disabled until a valid catalog arrives. Development version `0.2.0-dev.1+3`; Week 1 alpha stays frozen.
+
+Passed locally: analyzer + 44 phone tests, real production Dart/Java TLS/WSS row load/save/conflict alongside existing pad/app checks, 77 TLS guards/22 fake-disk row cases, native regression gate and signed API 22 launcher build. The updated Android debug APK built once in 209.3 s and passed v2 signature/metadata verification: version `0.2.0-dev.1`, code 3, min API 26, target API 36, ARM32/ARM64/x86_64; no iOS/native-device result is claimed.
+
+Day 9 phone APK SHA-256: `a4474a9b924547c85ac10a293886b3db48dca5803df7465d80344d28b4a5bf39`. This identifies the local ignored development APK; keys/APKs are not committed.

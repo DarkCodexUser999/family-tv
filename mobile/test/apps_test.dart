@@ -201,4 +201,18 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+  test(
+    'failed metadata refresh cannot enable row editing from an old catalog',
+    () async {
+      final api = FakeApps();
+      final c = AppsController(api, fixtures.credential());
+      await c.refresh();
+      expect(c.needsRefresh, false);
+      api.failure = const AppFailure('network', 'Offline');
+      await c.refresh();
+      expect(c.needsRefresh, true);
+      expect(c.apps, isEmpty);
+      c.dispose();
+    },
+  );
 }

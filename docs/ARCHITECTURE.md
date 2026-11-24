@@ -1,6 +1,6 @@
 # Family TV Remote architecture
 
-Status: Days 6–7 implemented on 2026-11-24: default-off HTTPS pairing/discovery, foreground-only WSS pad, cached app catalog/icons and revision-bound launches from the Flutter grid. Host integration and Android build evidence are in WEEK_1_ALPHA.md. Editing, uploading, phone-side provider configuration and richer status remain planned; unimplemented routes return 404. Legacy TCP and accessibility takeover are removed. Physical Fire OS/iOS TLS/NSD, memory and latency acceptance remains pending.
+Status: Days 8–9 development on 2026-11-24 adds iPhone local-network recovery/source checks and a revisioned phone row editor over private atomic TV overrides. Week 1 alpha remains frozen at `v0.1.0-alpha.1`. Host/build evidence is in DAY_8_IOS.md, DAY_9_ROWS.md and PROGRESS.md. Hidden-app editing, uploads, phone-side provider configuration and richer status remain planned. Physical Fire OS/iOS, memory and latency acceptance remains pending; full Xcode is absent.
 
 ## Stack and repository
 
@@ -101,3 +101,11 @@ Use scripts/check-mobile.sh and scripts/check-remote-interop.sh for Flutter/anal
 `AppLaunch` permits one pending request, expires queued work after 500 ms and caches at most 64 accepted phone/request-ID pairs. Reused IDs are bound to package/revision. Authorization, foreground epoch, busy state and snapshot identity are checked before the UI dispatch; the existing tile callback supplies feedback and per-app cached launch flags. ACK means click dispatched, not first frame or login. Package broadcasts invalidate the snapshot and recreate the Activity with saved focus.
 
 The phone uses pinned TLS for catalog, icons and launches, with 8-second request deadlines, 16 KiB JSON/8 KiB image caps and no redirects/proxy. The grid closes its requests when backgrounded; manual Refresh is required on return. Opening Apps suspends the pad socket until that screen is popped. New addresses require explicit forget/re-pair; tokens are never silently sent to another endpoint.
+
+## Row configuration ownership — Day 9
+
+`RuntimeConfigStore` owns one process-local `RowsEndpoint` backed by private Android AtomicFile storage; it retains no Activity reference. `RowConfig` still reads the packaged defaults, then the store overlays a validated saved document. `CatalogRows` keeps its existing installed-app/leftover ordering. The Activity captures a row revision while preparing the catalog, rejects a superseded preparation and records that revision when building home.
+
+Authenticated row reads serialize cached immutable state. Mutations enforce strict UTF-8/8 KiB bounds, 1–4 rows, ≤6 apps each, global uniqueness, current catalog membership and body revision/If-Match. A single synchronized writer commits disk before publishing state; a failed write leaves the published snapshot unchanged. A save's response is captured under that same writer lock.
+
+After a successful save, the bridge posts a rebuild request only to a safe foreground Activity. Busy/background/dialog states defer to the existing return/dismiss lifecycle, retaining package focus via the original preference/row-focus logic. No disk access, package discovery, image work, polling or new service is added to focus handling. Physical focus/AtomicFile crash/memory/latency acceptance stays open.

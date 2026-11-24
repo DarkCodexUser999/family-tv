@@ -20,6 +20,10 @@ public final class RemoteHarness {
         LauncherBridge bridge=new LauncherBridge();ExecutorService main=Executors.newSingleThreadExecutor();
         bridge.apps=new AppsEndpoint(200,Arrays.asList(new AppsEndpoint.App("tv.youtube","YouTube",
                 Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2uoAAAAASUVORK5CYII="))));
+        final String[] rowDisk={null};
+        bridge.rows=new RowsEndpoint(new RowsEndpoint.Disk(){
+            public String read(){return rowDisk[0];}public void write(String json){rowDisk[0]=json;}
+        },new RowsEndpoint.State(0,Arrays.asList(Arrays.asList("tv.youtube"))));
         Path output=Paths.get(args[2]);Files.write(output,new byte[0]);
         LauncherBridge.Ui ui=new LauncherBridge.Ui(){
             public void post(Runnable r){main.execute(r);}

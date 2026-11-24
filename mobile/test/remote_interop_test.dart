@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:family_tv_remote/core/api/models.dart';
 import 'package:family_tv_remote/core/api/apps_api.dart';
+import 'package:family_tv_remote/core/api/rows_api.dart';
 import 'package:family_tv_remote/core/api/events.dart';
 import 'package:family_tv_remote/features/remote/remote_controller.dart';
 
@@ -137,6 +138,31 @@ void main() {
             );
           } finally {
             apps.cancel();
+          }
+          final rows = PinnedRowsApi();
+          try {
+            final baseline = await rows.load(credential);
+            expect(baseline.rows.single, ['tv.youtube']);
+            final saved = await rows.save(
+              credential,
+              RowsDocument(baseline.revision, [
+                [],
+                ['tv.youtube'],
+              ]),
+            );
+            expect(saved.revision, baseline.revision + 1);
+            expect((await rows.load(credential)).rows, [
+              [],
+              ['tv.youtube'],
+            ]);
+            await expectLater(
+              rows.save(credential, baseline),
+              throwsA(
+                isA<AppFailure>().having((e) => e.code, 'code', 'conflict'),
+              ),
+            );
+          } finally {
+            rows.cancel();
           }
           server.stdin.writeln('revoke');
           await server.stdin.flush();

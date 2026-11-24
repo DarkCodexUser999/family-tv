@@ -27,6 +27,7 @@ class AppsController extends ChangeNotifier {
   Future<void> refresh() async {
     if (!active || loading || pending != null || _disposed) return;
     final generation = ++_generation;
+    needsRefresh = true;
     api.cancel();
     loading = true;
     error = null;

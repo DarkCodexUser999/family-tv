@@ -53,3 +53,7 @@ Moving DOWN or UP returns to the last selected tile in that row for the current 
 The existing last-app preference also restores an app in a lazy lower row after launcher recreation: Family TV locates the saved key and prepares the saved control before requesting focus. If the app was removed, hidden or no longer appears in the catalog, focus falls back to the first available Favorite as before. Per-row history resets on recreation; the single last-app key remains persisted. Device verification is pending.
 
 The gear and MENU open Family TV options. Choose **Fire TV Settings** to leave the launcher for system settings. If installed-app discovery fails, the same menu offers **Retry loading apps**.
+
+## Phone row overrides — Day 9
+
+Remote → Apps → Edit TV rows writes a private, revisioned `remote-rows.json` override. This takes priority over bundled `rows.json` after the first save; editing the repository asset does not replace a valid saved arrangement. Use the phone editor to move apps back and Save to undo changes. Rows allow up to four groups/six configured apps each; unassigned installed apps keep the existing last-row behavior. This does not edit the hide list or task flags and never clears streaming-app data. See DAY_9_ROWS.md for conflict, lifecycle and recovery details.

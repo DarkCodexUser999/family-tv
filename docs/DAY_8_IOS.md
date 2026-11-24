@@ -17,10 +17,10 @@ This Mac selects `/Library/Developer/CommandLineTools`; `xcrun --find xcodebuild
 On a compatible Xcode host, use a clean APFS working copy and the pinned Flutter SDK, resolve the lock, then:
 
 ```sh
-flutter build ios --simulator --no-codesign --build-name=0.1.0 --build-number=2
+flutter build ios --simulator --no-codesign --build-name=0.2.0 --build-number=3
 ```
 
-The explicit numeric build name avoids putting the Android alpha suffix in the iOS marketing version. Follow Flutter's reported CocoaPods/Xcode prerequisites; do not add global ATS exceptions to make pairing pass.
+The explicit numeric build name avoids putting the Dart prerelease suffix in the iOS marketing version. Follow Flutter's reported CocoaPods/Xcode prerequisites; do not add global ATS exceptions to make pairing pass.
 
 Required physical checks: allow and deny Local Network, return from Settings and retry, discover/manual-connect to the same TV, verify fingerprint/PIN, terminate/reopen with actual Keychain storage, background/resume without replay, revoke and reconnect, then use the shared app grid/rows UI. Confirm a wrong certificate blocks credentials. Simulator success alone cannot close these gates.
 

@@ -1,6 +1,6 @@
 # Family TV Remote
 
-Days 6–7 Android alpha candidate; physical validation remains pending. One Flutter codebase for Android 8+/API 26 and iOS 15+ source. Pairing, a foreground-only pad and a searchable installed-app grid use pinned HTTPS/WSS; existing TV launch logic is preserved.
+Days 8–9 development source; physical validation remains pending. One Flutter codebase for Android 8+/API 26 and iOS 15+ source. Pairing, a foreground-only pad and a searchable installed-app grid use pinned HTTPS/WSS; existing TV launch logic is preserved.
 
 ## Run from the monorepo root
 
@@ -57,4 +57,8 @@ The second script runs the real Java transport and production Dart WSS connector
 
 Open remote → Apps to search installed non-hidden TV apps and send one explicit launch request. Cached icons have placeholders if absent; a launch acknowledgement hands control to the physical remote. Backgrounding cancels requests and requires Refresh before another launch. Changing the TV address or revoking access requires explicit forget/re-pair; credentials are never silently forwarded.
 
-Current version: `0.1.0-alpha.1+2`. See [Week 1 alpha setup and evidence](../docs/WEEK_1_ALPHA.md). The 31-test phone suite includes a host widget walkthrough of saved-store recreation, pairing/pad/grid navigation and lifecycle recovery. The real Dart/Java TLS/WSS test covers app pages, thumbnails, launch replay and revoked access; neither test proves device behavior.
+Week 1 version: `0.1.0-alpha.1+2` (frozen tag). See [Week 1 alpha setup and evidence](../docs/WEEK_1_ALPHA.md). The 31-test phone suite includes a host widget walkthrough of saved-store recreation, pairing/pad/grid navigation and lifecycle recovery. The real Dart/Java TLS/WSS test covers app pages, thumbnails, launch replay and revoked access; neither test proves device behavior.
+
+## Row editor — Day 9 development
+
+Version `0.2.0-dev.1+3`: Apps → Edit TV rows. Reorder apps/rows, move apps, pick unassigned apps and Save. Conflicting edits retain the draft; Reload requires discard confirmation. Backgrounding closes requests and requires explicit recovery, with no save replay. See [Day 9](../docs/DAY_9_ROWS.md). The analyzer/44 phone tests and real Dart/Java TLS/WSS row integration pass. iPhone recovery/store-channel source tests pass; actual Xcode/Keychain/Bonjour and TV behavior remain blocked.
