@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import 'apps_controller.dart';
+import 'hidden_editor.dart';
 import '../../core/api/rows_api.dart';
 import '../rows/rows_controller.dart';
 import '../rows/rows_screen.dart';
@@ -53,6 +54,39 @@ class _AppsScreenState extends State<AppsScreen> with WidgetsBindingObserver {
         appBar: AppBar(
           title: const Text('TV apps'),
           actions: [
+            IconButton(
+              tooltip: 'Hidden apps',
+              icon: const Icon(Icons.visibility_off_outlined),
+              onPressed:
+                  c.loading ||
+                      c.pending != null ||
+                      c.needsRefresh ||
+                      c.error?.code == 'unauthorized'
+                  ? null
+                  : () async {
+                      _rowsOpen = true;
+                      c.suspend();
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HiddenEditor(
+                            controller: HiddenController(
+                              PinnedHiddenApi(),
+                              c.credential,
+                            ),
+                          ),
+                        ),
+                      );
+                      if (mounted) {
+                        _rowsOpen = false;
+                        if (WidgetsBinding.instance.lifecycleState ==
+                            AppLifecycleState.resumed) {
+                          c.resume();
+                          await c.refresh();
+                        }
+                      }
+                    },
+            ),
             IconButton(
               tooltip: 'Edit TV rows',
               icon: const Icon(Icons.view_agenda_outlined),

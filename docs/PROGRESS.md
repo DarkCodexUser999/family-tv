@@ -1,7 +1,7 @@
 # Family TV Remote progress
 
-- Build day: **9 / 14 — Days 8–9 source/host implementation published; native iOS and physical acceptance blocked**, issues #13/#14.
-- Current milestone: iPhone connection recovery and phone row editor over authenticated revisioned atomic TV overrides. Days 2–9 physical gates remain open; full Xcode is unavailable.
+- Build day: **10 / 14 — hidden editor source/host work; physical acceptance pending**, issue #15.
+- Current milestone: reversible phone hide/unhide with named confirmation, private atomic overrides and immediate launch guards. Native iOS and physical TV gates remain open.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
@@ -141,3 +141,7 @@ Next: Day 10 hidden-app editing requires a new briefing/go. No Day 10 work start
 ## Day 10 — hidden app editor (2026-11-24)
 
 Issue #15. Server increment adds a private atomic hidden override over bundled exclusions, including Sony LIV. Authenticated management pages include hidden installed apps; normal catalogs, rows and launch requests exclude them. Accepted-request replay cannot bypass a new hide. Revision conflicts, strict bounds, bad storage recovery and explicit default-unhide are tested. Shared cached icon records avoid duplicate image storage. Config writes stay off the UI thread; existing safe lifecycle rebuild/focus fallback applies the change. No package/data/settings operation or restore/task-flag edit. Native regressions (83 TLS and 15 hidden-store guards), baseline 44 phone tests and signed launcher build pass; physical behavior remains pending.
+
+Day 10 phone editor adds search, hide/show switches, named confirmation, unsaved-discard protection, conflict/background recovery and disabled unavailable default policies. Actual Dart/Java TLS integration verifies hide/unhide while retaining Sony's default exclusion and rejects replayed launches while hidden. The late queued-OK/tile dispatch path now checks cached visibility without I/O; actual physical races/focus fallback remain pending. Candidate `0.2.0-dev.2+4` builds once on the SSD.
+
+Phone increment evidence: analyzer clean; the 50-case phone suite plus seven hidden-editor cases pass (51 distinct cases), actual Dart/Java TLS hide/unhide/replay rejection passes, and the dev Android APK built once in 214.5 s with v2 signature verification (code 4, API 26–36, ARM32/ARM64/x86_64). The launcher was rebuilt only for the added dispatch/snapshot race guards; v1/v2/v3 signatures pass. Restore, bundled hidden defaults, task flags and dependency lock are unchanged. See DAY_10_HIDDEN.md.

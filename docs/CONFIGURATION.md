@@ -57,3 +57,7 @@ The gear and MENU open Family TV options. Choose **Fire TV Settings** to leave t
 ## Phone row overrides — Day 9
 
 Remote → Apps → Edit TV rows writes a private, revisioned `remote-rows.json` override. This takes priority over bundled `rows.json` after the first save; editing the repository asset does not replace a valid saved arrangement. Use the phone editor to move apps back and Save to undo changes. Rows allow up to four groups/six configured apps each; unassigned installed apps keep the existing last-row behavior. This does not edit the hide list or task flags and never clears streaming-app data. See DAY_9_ROWS.md for conflict, lifecycle and recovery details.
+
+## Phone visibility override — Day 10
+
+Apps → Hidden apps manages a complete private `remote-hidden.json` override over bundled defaults. Save confirms each Hide/Show change; Sony LIV stays hidden unless explicitly unhidden. Conflicts retain drafts, and package data/sign-ins/settings remain untouched. The override survives remote access being switched off; edit it again from the phone to undo visibility changes. See DAY_10_HIDDEN.md.

@@ -125,15 +125,15 @@ class PinnedAppsApi implements AppsApi {
             ),
             503 when ifMatch != null => const AppFailure(
               'unavailable',
-              'The TV could not save these rows. Your draft is kept; reload TV rows before retrying.',
+              'The TV could not save these changes. Your draft is kept; reload before retrying.',
             ),
             400 => const AppFailure(
               'input',
-              'The TV rejected these changes. Check row limits and refresh the installed apps.',
+              'The TV rejected these changes. Check limits and refresh the installed apps.',
             ),
             409 when ifMatch != null => const AppFailure(
               'conflict',
-              'Another phone changed the TV rows. Your draft is kept. Reload TV rows before saving again.',
+              'Another phone changed the TV configuration. Your draft is kept. Reload before saving again.',
             ),
             409 => const AppFailure(
               'unavailable',

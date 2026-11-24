@@ -443,6 +443,44 @@
           }
         }
       }
+    },
+    "/v1/hidden/apps": {
+      "get": {
+        "operationId": "listManagedApps",
+        "description": "Authenticated installed launchable catalog including hidden entries; same bounded Apps response, 25 per page, at most 64. Use hidden document revision before/after paging to detect concurrent changes.",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{1,15}_[0-9]{1,2}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Apps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Apps"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./events.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

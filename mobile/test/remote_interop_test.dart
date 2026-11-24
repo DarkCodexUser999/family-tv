@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:family_tv_remote/core/api/models.dart';
 import 'package:family_tv_remote/core/api/apps_api.dart';
 import 'package:family_tv_remote/core/api/rows_api.dart';
+import 'package:family_tv_remote/features/apps/hidden_editor.dart';
 import 'package:family_tv_remote/core/api/events.dart';
 import 'package:family_tv_remote/features/remote/remote_controller.dart';
 
@@ -163,6 +164,40 @@ void main() {
             );
           } finally {
             rows.cancel();
+          }
+          final hidden = PinnedHiddenApi();
+          try {
+            final baseline = await hidden.load(credential);
+            expect(
+              baseline.document.packages,
+              contains('com.onemainstream.sonyliv.android'),
+            );
+            final saved = await hidden.save(
+              credential,
+              HiddenDocument(baseline.document.revision, {
+                ...baseline.document.packages,
+                'tv.youtube',
+              }),
+            );
+            final blocked = PinnedAppsApi();
+            try {
+              await expectLater(
+                blocked.launch(credential, 'tv.youtube', 200, 'interop-open'),
+                throwsA(isA<AppFailure>()),
+              );
+            } finally {
+              blocked.cancel();
+            }
+            expect(
+              (await hidden.load(credential)).document.packages,
+              contains('tv.youtube'),
+            );
+            await hidden.save(
+              credential,
+              HiddenDocument(saved.revision, baseline.document.packages),
+            );
+          } finally {
+            hidden.cancel();
           }
           server.stdin.writeln('revoke');
           await server.stdin.flush();

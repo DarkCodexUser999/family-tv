@@ -17,15 +17,15 @@ A lightweight, family-oriented Fire TV launcher and Flutter companion remote, de
 | Connectivity | Default-off HTTPS pairing/discovery; Pinned WSS controls plus cached app browsing/launches inside Family TV |
 | Build | JDK 17, Android SDK 36, Build Tools 35.0.0; direct shell build |
 
-## Current development — phone row editor
+## Current development — rows and hidden apps
 
-`0.2.0-dev.1` adds iPhone network-recovery guidance and a shared phone editor for reordering/moving apps across TV rows. Saves are explicit and revision-protected; conflicts keep your draft. [Row editor setup and evidence](docs/DAY_9_ROWS.md) · [iOS source validation limits](docs/DAY_8_IOS.md). Physical TV/phone behavior and native iOS builds remain unverified.
+`0.2.0-dev.2` adds a searchable phone hide/unhide editor with named confirmation, reversible visibility and conflict-safe drafts. Apps stay installed and signed in. [Hidden app setup/evidence](docs/DAY_10_HIDDEN.md) · [Row editor](docs/DAY_9_ROWS.md) · [iOS limits](docs/DAY_8_IOS.md). Physical TV/phone behavior and native iOS builds remain unverified.
 
 ## Week 1 Android alpha
 
 The phone can pair, navigate foreground Family TV, search installed non-hidden apps and request launches through the existing TV routes. The app grid shows cached icons, launch feedback and the physical-remote handoff. Backgrounding closes requests; Refresh reconnects the grid without replaying a launch.
 
-**`0.1.0-alpha.1` is a host-validated candidate, not a device-certified release.** See [Android setup, checks and remaining gates](docs/WEEK_1_ALPHA.md). That alpha predates row editing. Current development adds the row editor below; hidden-app editing, uploads and phone-side TMDB settings remain future work. No accounts or app data are changed.
+**`0.1.0-alpha.1` is a host-validated candidate, not a device-certified release.** See [Android setup, checks and remaining gates](docs/WEEK_1_ALPHA.md). That alpha predates row editing. Current development adds the row editor below; uploads and phone-side TMDB settings remain future work. No accounts or app data are changed.
 
 ## Screenshots
 

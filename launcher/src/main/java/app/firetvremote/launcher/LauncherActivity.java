@@ -820,6 +820,8 @@ public final class LauncherActivity extends Activity {
         // Allow one frame for pressed/loading feedback, then dispatch after traversal.
         final Runnable dispatchLaunch = () -> {
             if (pendingTile != tileButton || isFinishing()) return;
+            app.firetvremote.launcher.lan.HiddenEndpoint exclusions=app.firetvremote.launcher.lan.LauncherBridge.SHARED.hidden;
+            if(artworkPackage!=null && exclusions!=null && exclusions.snapshot().packages.contains(artworkPackage)){clearPending();return;}
             launchDispatched = true;
             onSelect.run();
         };
@@ -830,6 +832,8 @@ public final class LauncherActivity extends Activity {
                 return;
             }
             if (pendingTile != null) return;
+            app.firetvremote.launcher.lan.HiddenEndpoint exclusions=app.firetvremote.launcher.lan.LauncherBridge.SHARED.hidden;
+            if(artworkPackage!=null && exclusions!=null && exclusions.snapshot().packages.contains(artworkPackage))return;
             pendingTile = tileButton;
             app.firetvremote.launcher.lan.LauncherBridge.SHARED.busy(lanUi,true);
             if ("app:in.startv.hotstar".equals(key)) {

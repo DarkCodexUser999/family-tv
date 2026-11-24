@@ -13,9 +13,9 @@ final class AppLaunch {
     private final LinkedHashMap<String,String> seen=new LinkedHashMap<>();
     AppLaunch(LauncherBridge bridge){this.bridge=bridge;}
     String launch(String phone,String pkg,String id,long revision,Guard authorized) {
-        String key=phone+":"+id, value=pkg+":"+revision;
-        synchronized(seen){if(seen.containsKey(key))return !value.equals(seen.get(key))?"invalid_request":bridge.apps==null||!bridge.apps.contains(pkg)?"not_found":"ok";}
         AppsEndpoint snapshot=bridge.apps;
+        String key=phone+":"+id, value=pkg+":"+revision;
+        synchronized(seen){if(seen.containsKey(key))return !value.equals(seen.get(key))?"invalid_request":snapshot==null||!snapshot.contains(pkg)?"not_found":"ok";}
         if(snapshot==null || snapshot.revision!=revision)return "stale_catalog";
         if(!snapshot.contains(pkg))return "not_found";
         LauncherBridge.Ui ui=bridge.ui();long epoch=bridge.epoch(), start=System.nanoTime();

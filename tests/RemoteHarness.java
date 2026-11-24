@@ -20,6 +20,9 @@ public final class RemoteHarness {
         LauncherBridge bridge=new LauncherBridge();ExecutorService main=Executors.newSingleThreadExecutor();
         bridge.apps=new AppsEndpoint(200,Arrays.asList(new AppsEndpoint.App("tv.youtube","YouTube",
                 Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2uoAAAAASUVORK5CYII="))));
+        final String[] hiddenDisk={null};
+        bridge.management=bridge.apps;
+        bridge.hidden=new HiddenEndpoint(new RowsEndpoint.Disk(){public String read(){return hiddenDisk[0];}public void write(String value){hiddenDisk[0]=value;}},new HashSet<>(Arrays.asList("com.onemainstream.sonyliv.android")));
         final String[] rowDisk={null};
         bridge.rows=new RowsEndpoint(new RowsEndpoint.Disk(){
             public String read(){return rowDisk[0];}public void write(String json){rowDisk[0]=json;}

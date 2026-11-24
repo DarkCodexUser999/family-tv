@@ -1,6 +1,6 @@
 # Family TV Remote architecture
 
-Status: Days 8–9 development on 2026-11-24 adds iPhone local-network recovery/source checks and a revisioned phone row editor over private atomic TV overrides. Week 1 alpha remains frozen at `v0.1.0-alpha.1`. Host/build evidence is in DAY_8_IOS.md, DAY_9_ROWS.md and PROGRESS.md. Hidden-app editing, uploads, phone-side provider configuration and richer status remain planned. Physical Fire OS/iOS, memory and latency acceptance remains pending; full Xcode is absent.
+Status: Days 8–9 development on 2026-11-24 adds iPhone local-network recovery/source checks and a revisioned phone row editor over private atomic TV overrides. Week 1 alpha remains frozen at `v0.1.0-alpha.1`. Host/build evidence is in DAY_8_IOS.md, DAY_9_ROWS.md and PROGRESS.md. Day 10 implements revisioned hidden-app management; uploads, phone-side provider configuration and richer status remain planned. Physical Fire OS/iOS, memory and latency acceptance remains pending; full Xcode is absent.
 
 ## Stack and repository
 
@@ -109,3 +109,9 @@ The phone uses pinned TLS for catalog, icons and launches, with 8-second request
 Authenticated row reads serialize cached immutable state. Mutations enforce strict UTF-8/8 KiB bounds, 1–4 rows, ≤6 apps each, global uniqueness, current catalog membership and body revision/If-Match. A single synchronized writer commits disk before publishing state; a failed write leaves the published snapshot unchanged. A save's response is captured under that same writer lock.
 
 After a successful save, the bridge posts a rebuild request only to a safe foreground Activity. Busy/background/dialog states defer to the existing return/dismiss lifecycle, retaining package focus via the original preference/row-focus logic. No disk access, package discovery, image work, polling or new service is added to focus handling. Physical focus/AtomicFile crash/memory/latency acceptance stays open.
+
+## Hidden management — Day 10
+
+`HiddenEndpoint` stores a bounded immutable set via the shared private atomic adapter. Default exclusions are the fallback; a valid explicit full-set override takes priority. The Activity discovers all launchable metadata on its worker, filters visible rows, and retains a bounded authenticated management catalog when remote access is ON. Both catalogs share encoded icon records.
+
+Hidden PUTs are serialized and revision/auth checked. The bridge swaps the launchable snapshot immediately, and the Activity uses safe lifecycle rebuilds with existing package-focus fallback. Both explicit launch replay and tile/deferred-click paths check current visibility. Requests never uninstall/disable/clear packages or modify system settings. Phone management checks the hidden revision around paginated reads; conflicts/backgrounding preserve drafts and require explicit recovery.

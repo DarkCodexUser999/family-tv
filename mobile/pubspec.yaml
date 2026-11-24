@@ -1,7 +1,7 @@
 name: family_tv_remote
 description: Family TV companion for private home Wi-Fi pairing.
 publish_to: none
-version: 0.2.0-dev.1+3
+version: 0.2.0-dev.2+4
 environment:
   sdk: '>=3.14.0 <4.0.0'
 dependencies:

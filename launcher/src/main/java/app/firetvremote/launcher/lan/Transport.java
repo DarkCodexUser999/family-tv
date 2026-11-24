@@ -211,10 +211,11 @@ public final class Transport extends NanoWSD {
         if(endpoint==null)return error(Response.Status.SERVICE_UNAVAILABLE,"catalog_unavailable");
         if(session.getMethod()==Method.GET && emptyBody(session)){
             if("/v1/hidden".equals(session.getUri()))return json(Response.Status.OK,endpoint.snapshot().json());
-            if("/v1/hidden/apps".equals(session.getUri()) && bridge.management!=null){
+            AppsEndpoint catalog=bridge.management;
+            if("/v1/hidden/apps".equals(session.getUri()) && catalog!=null){
                 String query=session.getQueryParameterString(),cursor=null;
                 if(query!=null){if(!query.matches("cursor=[0-9]{1,15}_[0-9]{1,2}"))return error(Response.Status.BAD_REQUEST,"invalid_request");cursor=query.substring(7);}
-                try{return json(Response.Status.OK,bridge.management.page(cursor,25,endpoint.snapshot().packages));}
+                try{return json(Response.Status.OK,catalog.page(cursor,25,endpoint.snapshot().packages));}
                 catch(IllegalArgumentException|IllegalStateException bad){return error(Response.Status.CONFLICT,"conflict");}
             }
         }
