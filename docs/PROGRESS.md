@@ -109,3 +109,9 @@ Published increments: [`cf74d78`](https://github.com/DarkCodexUser999/family-tv/
 - Issues #11/#12 remain open for physical acceptance; board cards distinguish host-complete work from blocked device evidence. The `v0.1.0-alpha.1` prerelease is explicitly unverified on hardware and is tagged only after publication checks.
 - Demo now: the host widget walkthrough exercises saved-store recreation, pairing, pad, searchable apps, one Open request and return; the real TLS/WSS harness exercises production clients against a fake TV UI. Demo later on hardware: pair, search/open each app and record actual package/BACK, reconnect/revoke, memory and latency.
 - Next: Day 8 iOS parity needs a fresh briefing/go and compatible Xcode; no iOS or Day 8 implementation was done today. At handoff stop only project-owned tools, detach the tools image, then safely eject ExSSD.
+
+## Day 8 — source/host iOS parity (2026-11-24)
+
+Owner extended this session to Days 8 and 9 after the green Week 1 alpha. Day 8 issue #13 covers iPhone consent/recovery, pinned-plugin error handling and actual credential-store channel arguments with a mocked native store. Source guards validate iOS configuration without changing ATS or adding dependencies. Full Xcode is absent, so simulator/native build and physical consent/Keychain/discovery remain blocked; see DAY_8_IOS.md. The SSD remains mounted because the owner authorized continued work, rather than ejecting between days.
+
+Day 8 local evidence: analyzer clean, 34 phone tests passed, iOS plist/Bonjour/ATS/entitlement/deployment source guards passed. Existing pinned TLS tests remain shared across platforms; no iOS simulator/native run is claimed.

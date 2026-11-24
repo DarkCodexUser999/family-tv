@@ -3,6 +3,7 @@
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 python3 "$root/tests/check-build-parity.py"
+python3 "$root/tests/check-ios-config.py"
 python3 "$root/tests/check-restore.py"
 python3 "$root/tests/check-catalog.py"
 python3 "$root/tests/check-provider-secrets.py"

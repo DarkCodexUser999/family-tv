@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:nsd/nsd.dart' as nsd;
+import 'package:flutter/foundation.dart';
 
 import '../api/models.dart';
 
@@ -64,17 +65,7 @@ class NsdTvDiscovery implements TvDiscovery {
       emit();
       await Future<void>.delayed(const Duration(seconds: 8));
     } catch (error) {
-      if (error is nsd.NsdError &&
-          error.cause == nsd.ErrorCause.securityIssue) {
-        throw const AppFailure(
-          'permission',
-          'Local network access is blocked. Enable it in phone Settings, return here and retry. Manual connection also needs network permission.',
-        );
-      }
-      throw const AppFailure(
-        'discovery',
-        'Discovery is unavailable. Check home Wi-Fi and TV Remote access, or enter the TV address manually.',
-      );
+      throw discoveryFailure(error);
     } finally {
       if (generation == _generation) await stop();
     }
@@ -96,4 +87,25 @@ class NsdTvDiscovery implements TvDiscovery {
       }
     }
   }
+}
+
+// The pinned iOS plugin maps most native failures to internalError, not securityIssue.
+// Explain permission recovery without falsely diagnosing every failure as a denial.
+AppFailure discoveryFailure(Object error, {TargetPlatform? platform}) {
+  if (error is nsd.NsdError && error.cause == nsd.ErrorCause.securityIssue) {
+    return const AppFailure(
+      'permission',
+      'Local network access is blocked. Enable it in phone Settings, return here and retry. Manual connection also needs network permission.',
+    );
+  }
+  if ((platform ?? defaultTargetPlatform) == TargetPlatform.iOS) {
+    return const AppFailure(
+      'discovery',
+      'Cannot discover Family TV. Check home Wi-Fi and Remote access. On iPhone, also check Settings → Privacy & Security → Local Network → Family TV Remote, then tap Find my TV again. Manual connection also needs Local Network access.',
+    );
+  }
+  return const AppFailure(
+    'discovery',
+    'Discovery is unavailable. Check home Wi-Fi and TV Remote access, or enter the TV address manually.',
+  );
 }

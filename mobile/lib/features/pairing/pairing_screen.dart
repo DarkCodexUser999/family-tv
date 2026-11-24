@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/api/apps_api.dart';
@@ -162,6 +163,13 @@ class _PairingScreenState extends State<PairingScreen>
                     child: const Text('Forget saved connection'),
                   ),
                 if (c.phase == PairPhase.choose) ...[
+                  if (defaultTargetPlatform == TargetPlatform.iOS)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        'On iPhone, allow Local Network when asked so Family TV can find and securely connect to your TV. If you return from Settings, tap Find my TV again. Manual entry also needs this permission. No cloud account is used.',
+                      ),
+                    ),
                   const Text(
                     'Connect your phone and Fire Stick to the same home Wi-Fi. On TV, enable Remote access in Family TV settings.',
                   ),
