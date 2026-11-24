@@ -1,6 +1,6 @@
 # Family TV Remote progress
 
-- Build day: **9 / 14 — Days 8–9 source/host work; native iOS and physical acceptance blocked**, issues #13/#14.
+- Build day: **9 / 14 — Days 8–9 source/host implementation published; native iOS and physical acceptance blocked**, issues #13/#14.
 - Current milestone: iPhone connection recovery and phone row editor over authenticated revisioned atomic TV overrides. Days 2–9 physical gates remain open; full Xcode is unavailable.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
@@ -125,3 +125,15 @@ Day 9 phone editor: reorder apps/entire rows, move between rows, choose unassign
 Passed locally: analyzer + 44 phone tests, real production Dart/Java TLS/WSS row load/save/conflict alongside existing pad/app checks, 77 TLS guards/22 fake-disk row cases, native regression gate and signed API 22 launcher build. The updated Android debug APK built once in 209.3 s and passed v2 signature/metadata verification: version `0.2.0-dev.1`, code 3, min API 26, target API 36, ARM32/ARM64/x86_64; no iOS/native-device result is claimed.
 
 Day 9 phone APK SHA-256: `a4474a9b924547c85ac10a293886b3db48dca5803df7465d80344d28b4a5bf39`. This identifies the local ignored development APK; keys/APKs are not committed.
+
+### Days 8–9 publication and next step
+
+Published: [`3c72b94`](https://github.com/DarkCodexUser999/family-tv/commit/3c72b94) (iPhone recovery/store-channel tests), [`220e890`](https://github.com/DarkCodexUser999/family-tv/commit/220e890) (atomic revisioned row store/API), [`3982bf9`](https://github.com/DarkCodexUser999/family-tv/commit/3982bf9) (phone row editor, conflicts and Android candidate). This evidence update is the fourth increment for Days 8–9; there are no filler commits or history rewrites.
+
+44 phone tests/analyzer, real pinned Dart/Java app/row/TLS/WSS interop, native regressions (77 TLS + 22 fake-disk row cases), protocol fixtures and signed launcher/phone APKs pass locally. CI for the row-server commit passed [run 45332068572](https://github.com/DarkCodexUser999/family-tv/actions/runs/45332068572); the final phone/evidence run is checked and linked on the GitHub project before handoff. Unchanged production builds/tests are reused for this documentation-only commit.
+
+Issues #13/#14 stay open/Blocked: Xcode is absent; no iPhone, Android phone, emulator or Fire TV session ran. Actual iOS consent/Keychain/TLS/NSD and TV rows/focus/BACK/memory/latency need hardware. The fake-disk tests do not prove Android AtomicFile power-loss behavior. No stable release or speed claim is made. Week 1 alpha remains immutable at `v0.1.0-alpha.1`; current source is `0.2.0-dev.1+3`, without a new mid-week release tag.
+
+Demo now: host widget pairing/pad/apps/row-move/save/return, large text and conflict recovery; real TLS transport loads and saves rows with revision rejection. Demo later: repeat through two real phones and verify TV row order/focus while foreground and after returning from an app.
+
+Next: Day 10 hidden-app editing requires a new briefing/go. No Day 10 work started. Finish by verifying project cards/CI, stopping project-owned build tools and safely detaching/ejecting the SSD; the drive stayed mounted only because the owner extended this session to Days 8–9.

@@ -46,4 +46,6 @@ sh scripts/flutter.sh build apk --debug
 
 The native job runs the mocked ADB restore fixtures in `tests/check-all.sh`. After building both native APKs, it runs `python3 tests/check-build-parity.py --apks` to inspect their packaged metadata, compiled class versions and launcher contents. GitHub run results and physical-device results are tracked separately.
 
-The mobile unit/widget gate now explicitly includes `apps_test.dart` and `android_flow_test.dart` (31 tests total). The latter is a host walkthrough with injected APIs and storage, not Android instrumentation. Mac builds should use `scripts/build-mobile.sh` to avoid ExFAT metadata files being treated as Android resources.
+The mobile unit/widget gate explicitly includes app, Android-flow, iOS-parity and row-editor tests (44 tests total). The Android-flow test is a host walkthrough with injected APIs and storage, not Android instrumentation. Mac builds should use `scripts/build-mobile.sh` to avoid ExFAT metadata files being treated as Android resources.
+
+The native gate also runs `check-ios-config.py` (source configuration only) and row validation/concurrent-write fixtures with a fake disk. Real Dart/Java interop now covers row GET/PUT and revision conflicts. No GitHub iOS or device job is configured; green CI does not imply those ran.

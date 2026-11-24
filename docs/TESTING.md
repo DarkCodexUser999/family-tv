@@ -104,3 +104,7 @@ Performance scope: this removes duplicate View construction and repeated artwork
 ## Week 1 Android alpha — November 24, 2026
 
 Days 6–7 added cached phone app browsing/launches and integrated Android lifecycle/recovery. [Week 1 evidence](WEEK_1_ALPHA.md) records the host-only walkthrough, actual pinned Dart ↔ Java TLS/WSS integration, 31 phone tests, native/protocol checks and APK verification. Physical Android storage/discovery, Fire OS app launches/BACK, PSS and latency remain unverified. Historical TV captures above are not screenshots of this candidate. Issues #11/#12 remain open for those gates.
+
+## Days 8–9 — November 24, 2026
+
+[Day 8](DAY_8_IOS.md) records iPhone recovery and mocked secure-store/config checks; Xcode/native validation is blocked. [Day 9](DAY_9_ROWS.md) records revisioned atomic row overrides and phone editing/conflict/lifecycle coverage. Passed locally: analyzer/44 phone tests, actual pinned Dart/Java TLS/WSS row/app integration, native/protocol gates and signed TV/phone builds. Fake storage and host UI do not substitute for actual Keychain, Android AtomicFile crash or TV focus/memory/latency tests. No new device captures or performance numbers were produced.

@@ -128,3 +128,11 @@ Added authenticated bounded app pages/icons and revision-bound explicit launches
 The integrated host walkthrough exposed a covered remote screen reconnecting on phone resume; it now stays suspended until the app grid is popped. Grid resume requires manual Refresh and never replays an uncertain launch. Saved-store recreation and changed-address recovery are covered by host fakes; actual secure storage/Android recreation remain pending.
 
 Passed: 31 phone tests/analyzer, native regression gate (70 TLS + 10 explicit-launch queue checks), real production Dart/Java TLS/WSS app/remote interop, protocol validation, signed launcher and Android alpha builds. See WEEK_1_ALPHA.md and PROGRESS.md. No TV/phone/emulator was used, no PSS/latency figure is claimed, and no iOS/next-day feature was implemented.
+
+## Days 8–9 — 2026-11-24
+
+Day 8: inspected the pinned iOS discovery plugin's generic native-error mapping; added honest Local Network guidance and explicit retry instructions. Production secure-store channel arguments/read-back/locked/corrupt handling pass with a mocked native channel; iOS plist/Bonjour/ATS/entitlement guards pass. Full Xcode is absent, so no simulator/native or actual Keychain/consent claim is made.
+
+Day 9: added revisioned cached row reads and bounded authenticated PUTs, private AtomicFile overrides, strict bounds/catalog checks, serialized revision conflicts and exact save responses. Row application reuses existing package-focus restoration and defers rebuilds while busy/backgrounded. Phone editor handles ordering/moving/picking/unassigning, explicit Save, dirty-discard confirmation and draft retention on conflict/uncertain save; returning refreshes the grid. Failed metadata refreshes cannot enable editing from stale data.
+
+Passed: 44 phone tests/analyzer, production Dart/Java row/app TLS/WSS interop, full native suite including 77 TLS and 22 fake-disk row cases, protocol validation, API 22 launcher build/signatures and one updated Android dev APK build (209.3 s, code 3/API 26–36, v2 signature verified). Restore, per-app task flags and the hidden list remain unchanged. Physical Android AtomicFile crash recovery, TV row/focus behavior, PSS/latency and native iOS remain unverified. See DAY_8_IOS.md, DAY_9_ROWS.md and PROGRESS.md.
