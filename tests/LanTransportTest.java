@@ -156,6 +156,18 @@ public final class LanTransportTest {
             for(String badPath:new String[]{"/v1/apps/launch","/v1/apps/icon","/v1/apps//icon","/v1/apps//launch"})
                 check(!request("GET",badPath,auth).startsWith("HTTP/1.1 200"),"malformed app path rejected");
             check(uncaught.get()==null,"app route exception escaped worker");
+            RowsEndpointTest.Disk rowDisk=new RowsEndpointTest.Disk();
+            bridge.rows=new RowsEndpoint(rowDisk,new RowsEndpoint.State(0,java.util.Arrays.asList(java.util.Arrays.asList("test.app0"))));
+            check(request("GET","/v1/rows",auth).contains("\"revision\":0"),"cached rows GET");
+            check(request("GET","/v1/rows","").startsWith("HTTP/1.1 401"),"rows requires auth");
+            String rowBody=new RowsEndpoint.State(0,java.util.Arrays.asList(java.util.Arrays.asList("test.app1","test.app0"))).json();
+            String rowHeaders=auth+"Content-Type: application/json\r\nIf-Match: \"0\"\r\nContent-Length: "+rowBody.length()+"\r\n\r\n"+rowBody;
+            check(request("PUT","/v1/rows",rowHeaders).contains("\"revision\":1"),"real TLS rows PUT");
+            check(request("PUT","/v1/rows",rowHeaders).startsWith("HTTP/1.1 409"),"wire stale row edit");
+            check(request("GET","/v1/rows",auth).contains("test.app1"),"saved order cached");
+            String hiddenBody=new RowsEndpoint.State(1,java.util.Arrays.asList(java.util.Arrays.asList("test.hidden"))).json();
+            check(request("PUT","/v1/rows",auth+"Content-Type: application/json\r\nIf-Match: \"1\"\r\nContent-Length: "+hiddenBody.length()+"\r\n\r\n"+hiddenBody).startsWith("HTTP/1.1 404"),"wire hidden row target rejected");
+            check(request("GET","/v1/rows?token=bad",auth).startsWith("HTTP/1.1 400"),"rows query rejected");
             final int[] opened={0};
             LauncherBridge.Ui ui=new LauncherBridge.Ui(){
                 public void post(Runnable r){r.run();} public boolean perform(String action){return true;}

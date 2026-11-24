@@ -108,6 +108,7 @@ public final class Transport extends NanoWSD {
         if (!"/v1/info".equals(session.getUri())) {
             String phone=AuthFilter.phone(phones,session.getHeaders().get("authorization"));
             if(phone==null)return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            if(bridge!=null && "/v1/rows".equals(session.getUri()))return rows(session,phone);
             if(bridge!=null && session.getUri().startsWith("/v1/apps"))return apps(session,phone);
             if(events!=null && "/v1/status".equals(session.getUri()) && session.getMethod()==Method.GET && emptyBody(session))
                 return json(Response.Status.OK,events.status());
@@ -173,6 +174,36 @@ public final class Transport extends NanoWSD {
             return error("unauthorized".equals(result)?Response.Status.UNAUTHORIZED:
                     "not_found".equals(result)?Response.Status.NOT_FOUND:Response.Status.CONFLICT,result);
         }catch(IOException|IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
+    }
+    private Response rows(IHTTPSession session,String phone) {
+        RowsEndpoint endpoint=bridge.rows;
+        if(endpoint==null)return error(Response.Status.SERVICE_UNAVAILABLE,"catalog_unavailable");
+        if(session.getMethod()==Method.GET && emptyBody(session)) {
+            RowsEndpoint.State value=endpoint.snapshot();Response response=json(Response.Status.OK,value.json());
+            response.addHeader("ETag","\""+value.revision+"\"");return response;
+        }
+        if(session.getMethod()!=Method.PUT || !"application/json".equals(session.getHeaders().get("content-type")))
+            return error(Response.Status.BAD_REQUEST,"invalid_request");
+        try {
+            String length=session.getHeaders().get("content-length");
+            if(length==null || !length.matches("[0-9]{1,4}"))throw new IllegalArgumentException();
+            int size=Integer.parseInt(length);if(size<1 || size>8192)throw new IllegalArgumentException();
+            byte[] bytes=new byte[size];int offset=0,n;
+            while(offset<size){n=session.getInputStream().read(bytes,offset,size-offset);if(n<0)throw new IOException();offset+=n;}
+            java.nio.charset.CharsetDecoder decoder=java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT);
+            String body=decoder.decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+            String auth=session.getHeaders().get("authorization");AppsEndpoint apps=bridge.apps;
+            synchronized(endpoint) {
+            String result=endpoint.replace(body,session.getHeaders().get("if-match"),apps,
+                    () -> phone.equals(AuthFilter.phone(phones,auth)) && apps==bridge.apps);
+            if(result!=null)return error("unauthorized".equals(result)?Response.Status.UNAUTHORIZED:
+                    "invalid_request".equals(result)?Response.Status.BAD_REQUEST:
+                    "not_found".equals(result)?Response.Status.NOT_FOUND:
+                    "storage_unavailable".equals(result)?Response.Status.SERVICE_UNAVAILABLE:Response.Status.CONFLICT,result);
+            bridge.rowsChanged();return json(Response.Status.OK,endpoint.snapshot().json());
+            }
+        }catch(IOException|IllegalArgumentException invalid){return error(Response.Status.BAD_REQUEST,"invalid_request");}
     }
     private boolean emptyBody(IHTTPSession session){return !session.getHeaders().containsKey("content-length") || "0".equals(session.getHeaders().get("content-length"));}
     private Response upgrade(IHTTPSession session,String phone){

@@ -33,6 +33,7 @@ public final class LauncherActivity extends Activity {
     private static final String SETTINGS_KEY = "settings";
     private Button gear;
     private boolean catalogFailed, catalogDirty;
+    private long loadedRowsRevision=-1;
     private final android.content.BroadcastReceiver packageChanges=new android.content.BroadcastReceiver(){
         @Override public void onReceive(android.content.Context context,Intent intent){
             catalogDirty=true;
@@ -99,6 +100,7 @@ public final class LauncherActivity extends Activity {
             pendingTileLabel = null;
         }
         launchDispatched = false;
+        applyRowsIfReady();
     };
     private AlertDialog remoteDialog;
     private final android.os.Handler pairUi=new android.os.Handler(android.os.Looper.getMainLooper());
@@ -150,8 +152,10 @@ public final class LauncherActivity extends Activity {
             return;
         }
 
+        final app.firetvremote.launcher.lan.RowsEndpoint config=RuntimeConfigStore.open(this,RowConfig.read(this),installed.keySet());
+        final app.firetvremote.launcher.lan.RowsEndpoint.State rowSettings=config.snapshot();
         List<List<TileData>> prepared = new ArrayList<>();
-        for (List<CatalogEntry> row : CatalogRows.arrange(installed, RowConfig.read(this))) {
+        for (List<CatalogEntry> row : CatalogRows.arrange(installed, rowSettings.rows)) {
             List<TileData> tiles = new ArrayList<>();
             for (CatalogEntry entry : row) {
                 if (artwork.cancelled()) return;
@@ -163,6 +167,9 @@ public final class LauncherActivity extends Activity {
         }
         runOnUiThread(() -> {
             if (catalogDirty || isDestroyed() || isFinishing()) return;
+            if(config.snapshot().revision!=rowSettings.revision){recreate();return;}
+            loadedRowsRevision=rowSettings.revision;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.rows=config;
             rowData.addAll(prepared);
             buildHome();
             restoreFocus(restore);
@@ -576,7 +583,7 @@ public final class LauncherActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if(catalogDirty){recreate();return;}
+        if(catalogDirty || rowsChanged()){recreate();return;}
         isSettingsLaunchPaused = false;
         backdrop.resume();
         schedulePreparation();
@@ -647,8 +654,18 @@ public final class LauncherActivity extends Activity {
         return super.onKeyUp(code, event);
     }
 
+    private boolean rowsChanged() {
+        app.firetvremote.launcher.lan.RowsEndpoint config=app.firetvremote.launcher.lan.LauncherBridge.SHARED.rows;
+        return loadedRowsRevision>=0 && config!=null && config.snapshot().revision!=loadedRowsRevision;
+    }
+    private void applyRowsIfReady() {
+        if(rowsChanged() && !isSettingsLaunchPaused && pendingTile==null && !settingsOpening
+                && remoteDialog==null && !isFinishing() && !isDestroyed())recreate();
+    }
+
     private final app.firetvremote.launcher.lan.LauncherBridge.Ui lanUi=new app.firetvremote.launcher.lan.LauncherBridge.Ui(){
         @Override public void post(Runnable task){pairUi.post(task);}
+        @Override public void rowsChanged(){applyRowsIfReady();}
         @Override public boolean launch(String pkg){
             if(isFinishing() || isSettingsLaunchPaused || pendingTile!=null || remoteDialog!=null || settingsOpening)return false;
             for(int row=0;row<rowData.size();row++)for(int col=0;col<rowData.get(row).size();col++){
@@ -713,6 +730,7 @@ public final class LauncherActivity extends Activity {
         dialog.setOnDismissListener(ignored -> {
             pairUi.removeCallbacks(pairExpiry);
             if (remoteDialog == dialog) remoteDialog = null;
+            applyRowsIfReady();
         });
         dialog.show();
     }

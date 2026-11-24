@@ -3,10 +3,12 @@ package app.firetvremote.launcher.lan;
 /** UI-owned cached values only. Focus changes allocate nothing and never perform I/O. */
 public final class LauncherBridge {
     public static final LauncherBridge SHARED = new LauncherBridge();
-    public interface Ui { void post(Runnable task); boolean perform(String action); default boolean launch(String pkg) { return false; } }
+    public interface Ui { void post(Runnable task); boolean perform(String action); default boolean launch(String pkg) { return false; } default void rowsChanged() {} }
     public interface Signal { void changed(); }
     public volatile boolean tmdbConfigured;
     public volatile AppsEndpoint apps;
+    public volatile RowsEndpoint rows;
+    public void rowsChanged(){Ui target=ui;if(target!=null)target.post(target::rowsChanged);}
     private volatile Ui ui;
     private volatile boolean busy;
     private volatile String focused;

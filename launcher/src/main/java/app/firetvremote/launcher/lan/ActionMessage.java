@@ -26,8 +26,9 @@ public final class ActionMessage {
         return new ActionMessage(id,action,(Long)payload.get("sentAtMs"),(Long)payload.get("epoch"));
     }
     static final class Reader {
-        final String text; int pos;
-        Reader(String text) { if(text.length()>4096) throw new IllegalArgumentException(); this.text=text; }
+        final String text; final boolean rows; int pos;
+        Reader(String text) { this(text,false); }
+        Reader(String text,boolean rows) { if(text.length()>(rows?8192:4096)) throw new IllegalArgumentException(); this.text=text;this.rows=rows; }
         void space() { while(pos<text.length() && " \r\n\t".indexOf(text.charAt(pos))>=0)pos++; }
         char peek() { space(); if(pos==text.length())throw new IllegalArgumentException(); return text.charAt(pos); }
         void take(char c) { if(peek()!=c)throw new IllegalArgumentException();pos++; }
@@ -50,12 +51,19 @@ public final class ActionMessage {
         }
         Object value(int depth) {
             char c=peek();if(c=='"')return string();if(c=='{')return object(depth+1);
+            if(rows && c=='[')return array(depth+1);
             int start=pos;while(pos<text.length() && text.charAt(pos)>='0' && text.charAt(pos)<='9')pos++;
             String n=text.substring(start,pos);
             if(!n.matches("0|[1-9][0-9]{0,14}"))throw new IllegalArgumentException();return Long.valueOf(n);
         }
+        java.util.List<Object> array(int depth) {
+            if(depth>3)throw new IllegalArgumentException();take('[');
+            java.util.List<Object> list=new java.util.ArrayList<>();if(peek()==']'){pos++;return list;}
+            while(true){if(list.size()>=24)throw new IllegalArgumentException();list.add(value(depth));
+                char c=peek();pos++;if(c==']')return list;if(c!=',')throw new IllegalArgumentException();}
+        }
         Map<String,Object> object(int depth) {
-            if(depth>1)throw new IllegalArgumentException();take('{');Map<String,Object> out=new LinkedHashMap<>();
+            if(depth>(rows?3:1))throw new IllegalArgumentException();take('{');Map<String,Object> out=new LinkedHashMap<>();
             if(peek()=='}'){pos++;return out;}
             while(true) {
                 if(out.size()>=4)throw new IllegalArgumentException();String key=string();take(':');

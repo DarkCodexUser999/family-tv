@@ -47,12 +47,13 @@ final class HeaderInput extends InputStream {
     private void configureBody() throws IOException {
         String[] lines = new String(header,0,size,java.nio.charset.StandardCharsets.US_ASCII).split("\r\n");
         if (!lines[0].equals("POST /v1/pair HTTP/1.1")
-                && !lines[0].matches("POST /v1/apps/[A-Za-z0-9_.]{1,160}/launch HTTP/1.1")) return;
+                && !lines[0].matches("POST /v1/apps/[A-Za-z0-9_.]{1,160}/launch HTTP/1.1")
+                && !lines[0].equals("PUT /v1/rows HTTP/1.1")) return;
         for(int i=1;i<lines.length;i++) if(lines[i].toLowerCase(java.util.Locale.ROOT).startsWith("content-length:")) {
             String value=lines[i].substring(lines[i].indexOf(':')+1).trim();
             if(!value.matches("[0-9]{1,4}")) throw new IOException("Invalid body length");
             remaining=Integer.parseInt(value);
-            if(remaining>1024) throw new IOException("Pairing body too large");
+            if(remaining>(lines[0].equals("PUT /v1/rows HTTP/1.1")?8192:1024)) throw new IOException("Pairing body too large");
         }
     }
     private int body(byte[] bytes,int offset,int length) throws IOException {
