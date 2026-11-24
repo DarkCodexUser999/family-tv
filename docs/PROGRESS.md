@@ -1,7 +1,7 @@
 # Family TV Remote progress
 
 - Build day: **7 / 14 — Days 6–7 host implementation complete; physical acceptance blocked**, issues #11/#12.
-- Current milestone: searchable phone grid, guarded app launches and Android alpha integration; final publication/CI evidence is being recorded. Days 2–7 physical gates remain open.
+- Current milestone: Week 1 Android alpha implemented, built and published. Final CI/release links and project status are verified on the GitHub board; Days 2–7 physical gates remain open.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
@@ -98,3 +98,14 @@ Day 6 app-grid increment: searchable Flutter grid with cached PNGs, explicit ref
 Day 7 integration increment: saved-pairing recreation and pairing → pad → apps → return are exercised with injected host fakes. Covered remote routes stay suspended across phone lifecycle changes; the grid requires manual refresh after backgrounding and never replays a launch. A production Dart client also fetched pages/icons and launched through the real Java TLS/WSS stack, including duplicate, stale, hidden and revoked cases. Analyzer and 31 phone tests pass; native regressions include 70 TLS guards and 10 launch queue cases. Version metadata is `0.1.0-alpha.1+2`. The Android alpha debug APK built once (210.5 s) and passed v2 signature verification: package `app.familytv.family_tv_remote`, version code 2, min API 26, target API 36, ARM32/ARM64/x86_64. TV v1/v2/v3 signature verification and packaged native APK parity also pass. These are host checks, not Android recreation/keystore or Fire TV acceptance.
 
 Phone thumbnail preparation now starts only after the home view is built, on the existing background executor, rather than delaying the first home/catalog render. It checks Activity cancellation and remote-access state before publishing. This ordering change is source-level protection; actual timing/PSS still need the stick.
+
+### Days 6–7 publication and handoff
+
+Published increments: [`cf74d78`](https://github.com/DarkCodexUser999/family-tv/commit/cf74d78) (catalog/icons), [`594f61c`](https://github.com/DarkCodexUser999/family-tv/commit/594f61c) (grid/launch), [`9754e7b`](https://github.com/DarkCodexUser999/family-tv/commit/9754e7b) (Android integration/recovery). This evidence entry is the fourth increment; no additional feature batch starts.
+
+- Passed: native regressions, 31 Flutter unit/widget tests and analyzer, real pinned Dart/Java TLS/WSS app/remote interoperability, protocol fixtures, latest signed launcher build, Android alpha debug build and signature/metadata verification. No unchanged phone rebuild is required for this documentation-only update.
+- Phone APK SHA-256: `c09382701e0bee7ff7ea566e0bb0fa298bd13313f3545cb0219c6dfab93a7228`. This identifies this local debug build, not a reproducible release signature or device test. APKs/keys remain ignored.
+- CI for the grid commit passed: [run 45328580506](https://github.com/DarkCodexUser999/family-tv/actions/runs/45328580506). The final integration/hand-off run is checked separately on the project board; this earlier result does not claim later CI passed.
+- Issues #11/#12 remain open for physical acceptance; board cards distinguish host-complete work from blocked device evidence. The `v0.1.0-alpha.1` prerelease is explicitly unverified on hardware and is tagged only after publication checks.
+- Demo now: the host widget walkthrough exercises saved-store recreation, pairing, pad, searchable apps, one Open request and return; the real TLS/WSS harness exercises production clients against a fake TV UI. Demo later on hardware: pair, search/open each app and record actual package/BACK, reconnect/revoke, memory and latency.
+- Next: Day 8 iOS parity needs a fresh briefing/go and compatible Xcode; no iOS or Day 8 implementation was done today. At handoff stop only project-owned tools, detach the tools image, then safely eject ExSSD.

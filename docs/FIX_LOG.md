@@ -120,3 +120,11 @@ Issue #10: https://github.com/DarkCodexUser999/family-tv/issues/10. The prior sa
 - 8611665 docs: show historical Fire TV captures alongside labeled host evidence
 
 All four passed full host/protocol checks and both signed native APK builds. The CI and screenshot revisions also passed Flutter analysis, 21 tests, required real Dart–Java interoperability, the phone debug APK build and lockfile verification. The owner then requested stopping repeated checks; this final log uses those completed results, with no further feature testing or builds. Physical Fire OS behavior, timing and PSS remain UNVERIFIED. Historical screenshots are not current device acceptance. No further batch started.
+
+## Days 6–7 integration — 2026-11-24
+
+Added authenticated bounded app pages/icons and revision-bound explicit launches using existing tile callbacks, plus the Flutter searchable app grid. Queue tests enforce one in-flight request, stale/hidden rejection, lifecycle/revocation rechecks, expiry and duplicate suppression. Fixed malformed short app paths so missing package IDs return an error without an escaped worker exception. Package events invalidate the snapshot; thumbnails prepare after home construction with remote access enabled only. Launch routes, hidden configuration, restore and external-app BACK logic were preserved.
+
+The integrated host walkthrough exposed a covered remote screen reconnecting on phone resume; it now stays suspended until the app grid is popped. Grid resume requires manual Refresh and never replays an uncertain launch. Saved-store recreation and changed-address recovery are covered by host fakes; actual secure storage/Android recreation remain pending.
+
+Passed: 31 phone tests/analyzer, native regression gate (70 TLS + 10 explicit-launch queue checks), real production Dart/Java TLS/WSS app/remote interop, protocol validation, signed launcher and Android alpha builds. See WEEK_1_ALPHA.md and PROGRESS.md. No TV/phone/emulator was used, no PSS/latency figure is claimed, and no iOS/next-day feature was implemented.
