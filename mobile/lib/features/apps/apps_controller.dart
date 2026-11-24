@@ -14,6 +14,7 @@ class AppsController extends ChangeNotifier {
   final icons = <String, Uint8List>{};
   List<TvApp> apps = [];
   int revision = 0, _generation = 0, _sequence = 0;
+  bool needsRefresh = true;
   bool loading = false, _disposed = false, active = true;
   String? pending, message;
   AppFailure? error;
@@ -60,6 +61,7 @@ class AppsController extends ChangeNotifier {
       apps = List.unmodifiable(result);
       revision = version;
       loading = false;
+      needsRefresh = false;
       _emit();
       for (final app in apps) {
         if (!_current(generation)) return;
@@ -87,6 +89,8 @@ class AppsController extends ChangeNotifier {
         loading ||
         pending != null ||
         _disposed ||
+        needsRefresh ||
+        error?.code == 'unauthorized' ||
         !apps.contains(app)) {
       return;
     }
@@ -121,6 +125,8 @@ class AppsController extends ChangeNotifier {
 
   void suspend() {
     active = false;
+    needsRefresh = true;
+    message = 'Connection paused. Refresh apps after returning to home Wi-Fi.';
     _generation++;
     api.cancel();
     loading = false;

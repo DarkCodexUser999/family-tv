@@ -33,6 +33,7 @@ final class ArtworkLoader implements AppCatalog.ArtworkSource {
     }
 
     Future<?> submit(Runnable task) { return worker.submit(task); }
+    Future<?> submitCatalog(Runnable task) { return network.submit(task); }
 
     @Override public void register(String pkg, ResolveInfo info) {
         icons.put(pkg, info);

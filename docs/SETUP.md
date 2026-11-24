@@ -150,8 +150,12 @@ Neither command uninstalls streaming apps. The phone companion can be removed th
 
 ## Remote build toolchain — Day 1
 
-GitHub CLI 2.104.0 is installed under the external workspace's `tools/github-cli/`. Flutter 3.50.0 / Dart 3.14.0 bootstrap passed; stable checkout is pinned at `ab2912035e160d9cad6306df307576da6128ebdb`; analytics are disabled and evidence is tracked in PROGRESS.md. The phone package is not scaffolded yet, so Flutter analyzer/tests are N/A today.
+GitHub CLI 2.104.0 is installed under the external workspace's `tools/github-cli/`. Flutter 3.50.0 / Dart 3.14.0 bootstrap passed; stable checkout is pinned at `ab2912035e160d9cad6306df307576da6128ebdb`; analytics are disabled and evidence is tracked in PROGRESS.md. That was the Day 1 baseline; `/mobile` now contains the Flutter pairing, pad and app grid. Current build/test commands are in WEEK_1_ALPHA.md.
 
-The workspace SSD is ExFAT. Flutter's macOS hard-link startup lock does not work directly on ExFAT. A new 8 GiB-capacity sparse APFS image (`tools/flutter-tools.sparseimage`, grows with use) stores the tool checkout; mount it at `/Volumes/FamilyTVTools` with `hdiutil attach` before using it. Its backing data stays on ExSSD. This does not reformat the drive. Some macOS preferences and temporary files can still use internal storage. Detach the image before ejecting the SSD.
+The workspace SSD is ExFAT. Flutter's macOS hard-link startup lock does not work directly on ExFAT. An SSD-backed 16 GiB-capacity sparse APFS image (`tools/flutter-tools.sparseimage`, grows with use) stores the tool checkout; mount it at `/Volumes/FamilyTVTools` with `hdiutil attach` before using it. Its backing data stays on ExSSD. This does not reformat the drive. Some macOS preferences and temporary files can still use internal storage. Detach the image before ejecting the SSD.
 
 Protocol validators live in the workspace's `tools/protocol-venv/`. Reproduce with Python 3 and `pip install -r protocol/requirements-dev.txt` inside an SSD-hosted virtual environment. Requirements are development tooling only, never shipped in the launcher. GitHub CLI commands use existing credentials only via a process environment, without committing or writing a token to this repository. Daily issue: https://github.com/DarkCodexUser999/family-tv/issues/1.
+
+## Current Flutter Android alpha
+
+Build with `sh scripts/build-mobile.sh` after mounting FamilyTVTools. The phone APK is `mobile/build/app/outputs/flutter-apk/app-debug.apk`; the TV APK is `launcher/build/local/family-tv-debug.apk`. Both are development builds. Follow [the Week 1 walkthrough](WEEK_1_ALPHA.md) for installation, enabling remote access, pairing, app browsing and recovery. The older `/remote` APK does not speak HTTPS/WSS and must not be used for this walkthrough.

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:family_tv_remote/core/api/models.dart';
+import 'package:family_tv_remote/core/api/apps_api.dart';
 import 'package:family_tv_remote/core/api/events.dart';
 import 'package:family_tv_remote/features/remote/remote_controller.dart';
 
@@ -91,10 +92,67 @@ void main() {
           c.send('OK');
           await until(c, () => c.pending == null);
           expect(await out.readAsLines(), ['RIGHT', 'OK']);
+          final apps = PinnedAppsApi();
+          try {
+            final page = await apps.page(credential, null);
+            expect(page.apps.single.package, 'tv.youtube');
+            expect(
+              (await apps.icon(credential, 'tv.youtube')).length,
+              lessThan(8193),
+            );
+            await apps.launch(
+              credential,
+              'tv.youtube',
+              page.revision,
+              'interop-open',
+            );
+            await apps.launch(
+              credential,
+              'tv.youtube',
+              page.revision,
+              'interop-open',
+            );
+            expect(await out.readAsLines(), [
+              'RIGHT',
+              'OK',
+              'LAUNCH:tv.youtube',
+            ]);
+            await expectLater(
+              apps.launch(
+                credential,
+                'tv.hidden',
+                page.revision,
+                'hidden-open',
+              ),
+              throwsA(isA<AppFailure>()),
+            );
+            await expectLater(
+              apps.launch(
+                credential,
+                'tv.youtube',
+                page.revision - 1,
+                'old-open',
+              ),
+              throwsA(isA<AppFailure>()),
+            );
+          } finally {
+            apps.cancel();
+          }
           server.stdin.writeln('revoke');
           await server.stdin.flush();
           await until(c, () => !c.connected);
           expect(c.canSend, false);
+          final revoked = PinnedAppsApi();
+          try {
+            await expectLater(
+              revoked.page(credential, null),
+              throwsA(
+                isA<AppFailure>().having((e) => e.code, 'code', 'unauthorized'),
+              ),
+            );
+          } finally {
+            revoked.cancel();
+          }
         } finally {
           c.dispose();
         }

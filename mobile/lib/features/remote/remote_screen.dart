@@ -13,9 +13,11 @@ class RemoteScreen extends StatefulWidget {
     super.key,
     required this.credential,
     required this.controller,
+    this.appsFactory,
   });
   final PairCredential credential;
   final RemoteController controller;
+  final AppsApi Function()? appsFactory;
   @override
   State<RemoteScreen> createState() => _RemoteScreenState();
 }
@@ -23,6 +25,7 @@ class RemoteScreen extends StatefulWidget {
 class _RemoteScreenState extends State<RemoteScreen>
     with WidgetsBindingObserver {
   RemoteController get c => widget.controller;
+  bool _appsOpen = false;
   @override
   void initState() {
     super.initState();
@@ -32,7 +35,7 @@ class _RemoteScreenState extends State<RemoteScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed && !_appsOpen) {
       c.resume();
     } else {
       c.suspend();
@@ -68,19 +71,26 @@ class _RemoteScreenState extends State<RemoteScreen>
             tooltip: 'TV apps',
             icon: const Icon(Icons.apps),
             onPressed: () async {
+              _appsOpen = true;
               c.suspend();
               await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => AppsScreen(
                     controller: AppsController(
-                      PinnedAppsApi(),
+                      widget.appsFactory?.call() ?? PinnedAppsApi(),
                       widget.credential,
                     ),
                   ),
                 ),
               );
-              if (mounted) c.resume();
+              if (mounted) {
+                _appsOpen = false;
+                if (WidgetsBinding.instance.lifecycleState ==
+                    AppLifecycleState.resumed) {
+                  c.resume();
+                }
+              }
             },
           ),
         ],

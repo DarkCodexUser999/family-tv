@@ -1,6 +1,6 @@
 # Family TV Remote architecture
 
-Status: Day 5 code approved for publication on 2026-11-19; physical acceptance remains pending. Default-off HTTPS pairing/discovery plus authenticated WSS state/actions and Flutter remote pad are implemented in source. Only foreground Family TV receives commands. Apps/edit/upload/provider routes remain planned; authenticated unimplemented routes return 404. Legacy TCP autostart remains disabled. Physical Fire OS/iOS memory, TLS/NSD and latency acceptance remains pending. See DAY_5_REVIEW.md for actual evidence.
+Status: Days 6–7 implemented on 2026-11-24: default-off HTTPS pairing/discovery, foreground-only WSS pad, cached app catalog/icons and revision-bound launches from the Flutter grid. Host integration and Android build evidence are in WEEK_1_ALPHA.md. Editing, uploading, phone-side provider configuration and richer status remain planned; unimplemented routes return 404. Legacy TCP and accessibility takeover are removed. Physical Fire OS/iOS TLS/NSD, memory and latency acceptance remains pending.
 
 ## Stack and repository
 
@@ -48,9 +48,9 @@ All JSON is UTF-8. Responses include `apiVersion:1`; errors use `{error:{code,me
 | `POST /v1/pair` | `{sessionId,pin,deviceName}` → `{deviceId,token}`; explicit TV window only |
 | `GET /v1/status` | Cached enabled/foreground/canNavigate/catalogRevision/artwork job status; TMDB configured boolean only |
 | `GET /v1/apps` | Paginated cached `{package,label,hidden,iconRevision}` list; bounded local thumbnail endpoint |
-| `GET /v1/apps/{package}/icon` | Bounded cached thumbnail; authenticated, ETag, never arbitrary filesystem access |
+| `GET /v1/apps/{package}/icon` | Cached PNG ≤8192 bytes at 96×54; authenticated, no-store, no filesystem path |
 | `POST /v1/actions` | `{id,action}` with UP/DOWN/LEFT/RIGHT/OK/BACK/HOME/OPTIONS; semantic bridge, foreground only |
-| `POST /v1/apps/{package}/launch` | `{id}` → accepted/current revision; existing launch route, reject hidden/missing apps |
+| `POST /v1/apps/{package}/launch` | `{id,revision}` → `{apiVersion,id,accepted}`; existing tile callback, reject hidden/missing/stale apps |
 | `GET/PUT /v1/rows` | Read or replace ≤4 rows, ≤6 unique package IDs each, `If-Match`; unknown IDs rejected; leftovers policy preserved |
 | `GET/PUT /v1/hidden` | Read or replace hidden IDs, `If-Match`; includes Sony LIV baseline and never disables/uninstalls anything |
 | `PUT/DELETE /v1/artwork/{package}/{tile|backdrop}` | One streamed JPEG/PNG upload or delete override → revision; strict installed-package allowlist |
@@ -93,3 +93,11 @@ Sources: [Flutter platform support](https://docs.flutter.dev/reference/supported
 Native WSS uses the same pinned certificate and bearer header as HTTPS. Initial and coalesced `state` payloads contain foreground, canNavigate, focused package/null, even lifecycle epoch and serverTimeMs (monotonic). Action payloads add sentAtMs and epoch to matching envelope/payload IDs; the phone advances the received server time with its Stopwatch. Reject stale lifecycle/input before posting and again on dispatch. A recent duplicate returns its previous result without replay. State and acknowledgements are serialized off the focus path.
 
 Use scripts/check-mobile.sh and scripts/check-remote-interop.sh for Flutter/analyzer and real Dart-to-Java host interoperability. The latter needs JDK17 and private IPv4 and is not a device/performance test. App launching through the pad's OK reuses existing handlers; the explicit phone app grid is Day 6. Minimal /v1/status has catalogRevision=0 and the current credential-configured boolean. HTTP /v1/actions is still reserved; current control transport is WSS only.
+
+## Implemented app browsing bounds — Days 6–7
+
+`AppsEndpoint` retains up to 64 non-hidden entries and ≤512 KiB of encoded PNGs, prepared after the home view is built, on the existing artwork background executor only when remote access is ON. Pages contain at most 25 entries; cursors bind offset to snapshot revision. Canonical query order is `cursor` then `limit`; unknown/duplicate/encoded query fields fail closed. No thumbnails are decoded by request handlers. This is a retained-data bound, not measured PSS.
+
+`AppLaunch` permits one pending request, expires queued work after 500 ms and caches at most 64 accepted phone/request-ID pairs. Reused IDs are bound to package/revision. Authorization, foreground epoch, busy state and snapshot identity are checked before the UI dispatch; the existing tile callback supplies feedback and per-app cached launch flags. ACK means click dispatched, not first frame or login. Package broadcasts invalidate the snapshot and recreate the Activity with saved focus.
+
+The phone uses pinned TLS for catalog, icons and launches, with 8-second request deadlines, 16 KiB JSON/8 KiB image caps and no redirects/proxy. The grid closes its requests when backgrounded; manual Refresh is required on return. Opening Apps suspends the pad socket until that screen is popped. New addresses require explicit forget/re-pair; tokens are never silently sent to another endpoint.

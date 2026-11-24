@@ -150,17 +150,6 @@ public final class LauncherActivity extends Activity {
             return;
         }
 
-        List<app.firetvremote.launcher.lan.AppsEndpoint.App> phoneApps = new ArrayList<>();
-        if (app.firetvremote.launcher.lan.LanService.enabled(this))
-        for (CatalogEntry entry : installed.values()) {
-            if (phoneApps.size() >= app.firetvremote.launcher.lan.AppsEndpoint.MAX_APPS) break;
-            Bitmap thumbnail = artwork.loadTile("phone:" + entry.route.pkg, entry.route.pkg, 96, 54);
-            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
-            if (thumbnail != null) thumbnail.compress(Bitmap.CompressFormat.PNG, 100, bytes);
-            phoneApps.add(new app.firetvremote.launcher.lan.AppsEndpoint.App(entry.route.pkg, entry.label, bytes.toByteArray()));
-        }
-        final app.firetvremote.launcher.lan.AppsEndpoint phoneCatalog =
-                new app.firetvremote.launcher.lan.AppsEndpoint(android.os.SystemClock.elapsedRealtime(), phoneApps);
         List<List<TileData>> prepared = new ArrayList<>();
         for (List<CatalogEntry> row : CatalogRows.arrange(installed, RowConfig.read(this))) {
             List<TileData> tiles = new ArrayList<>();
@@ -174,10 +163,31 @@ public final class LauncherActivity extends Activity {
         }
         runOnUiThread(() -> {
             if (catalogDirty || isDestroyed() || isFinishing()) return;
-            app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps = phoneCatalog;
             rowData.addAll(prepared);
             buildHome();
             restoreFocus(restore);
+            if(app.firetvremote.launcher.lan.LanService.enabled(this))
+                artwork.submitCatalog(() -> preparePhoneCatalog(installed));
+        });
+    }
+
+    private void preparePhoneCatalog(Map<String,CatalogEntry> installed) {
+        List<app.firetvremote.launcher.lan.AppsEndpoint.App> phoneApps = new ArrayList<>();
+        for (CatalogEntry entry : installed.values()) {
+            if (artwork.cancelled()) return;
+            if (phoneApps.size() >= app.firetvremote.launcher.lan.AppsEndpoint.MAX_APPS) break;
+            Bitmap thumbnail = artwork.loadTile("phone:" + entry.route.pkg, entry.route.pkg, 96, 54);
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            if (thumbnail != null) thumbnail.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+            phoneApps.add(new app.firetvremote.launcher.lan.AppsEndpoint.App(entry.route.pkg, entry.label, bytes.toByteArray()));
+        }
+        final app.firetvremote.launcher.lan.AppsEndpoint phoneCatalog =
+                new app.firetvremote.launcher.lan.AppsEndpoint(android.os.SystemClock.elapsedRealtime(), phoneApps);
+
+        runOnUiThread(() -> {
+            if(!catalogDirty && !isDestroyed() && !isFinishing()
+                    && app.firetvremote.launcher.lan.LanService.enabled(this))
+                app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps=phoneCatalog;
         });
     }
 

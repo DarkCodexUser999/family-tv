@@ -124,7 +124,7 @@ public final class Transport extends NanoWSD {
         AppsEndpoint snapshot=bridge.apps;
         if(snapshot==null)return error(Response.Status.SERVICE_UNAVAILABLE,"catalog_unavailable");
         String path=session.getUri();
-        if(path.startsWith("/v1/apps/") && path.endsWith("/launch"))return launch(session,phone,path);
+        if(path.startsWith("/v1/apps/") && path.endsWith("/launch") && path.length()>16)return launch(session,phone,path);
         if(session.getMethod()!=Method.GET || !emptyBody(session))return error(Response.Status.BAD_REQUEST,"invalid_request");
         if(path.equals("/v1/apps")) {
             String query=session.getQueryParameterString();
@@ -140,7 +140,7 @@ public final class Transport extends NanoWSD {
             catch(IllegalStateException stale){return error(Response.Status.CONFLICT,"stale_catalog");}
             catch(IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
         }
-        if(path.startsWith("/v1/apps/") && path.endsWith("/icon")) {
+        if(path.startsWith("/v1/apps/") && path.endsWith("/icon") && path.length()>14) {
             String pkg=path.substring(9,path.length()-5);
             byte[] icon=AppsEndpoint.packageName(pkg)?snapshot.icon(pkg):null;
             if(icon!=null) {

@@ -35,7 +35,7 @@ The D8 and apksigner SDK wrappers declare Bash as their interpreter. The build s
 
 ## Phone companion and interoperability
 
-The separate Ubuntu mobile job checks out the Flutter revision recorded in `mobile/.metadata`, resolves the committed dependency lock, runs the analyzer and Flutter tests, and builds an Android debug APK. Its interoperability test starts the real Java HTTPS/WSS transport, connects the Dart client with a pinned certificate, and exercises command delivery and foreground gating. A runner without a private IPv4 address fails this job. Locally, setting `FAMILYTV_REQUIRE_INTEROP=1` requires the same coverage.
+The separate Ubuntu mobile job checks out the Flutter revision recorded in `mobile/.metadata`, resolves the committed dependency lock, runs the analyzer and Flutter tests, and builds an Android debug APK. Its interoperability test starts the real Java HTTPS/WSS transport, connects the Dart client with a pinned certificate, and exercises command delivery/foreground gating, app pages/icons, launch acknowledgements, duplicate suppression and revoked access. A runner without a private IPv4 address fails this job. Locally, setting `FAMILYTV_REQUIRE_INTEROP=1` requires the same coverage.
 
 ```sh
 sh scripts/flutter.sh pub get --enforce-lockfile
@@ -45,3 +45,5 @@ sh scripts/flutter.sh build apk --debug
 ```
 
 The native job runs the mocked ADB restore fixtures in `tests/check-all.sh`. After building both native APKs, it runs `python3 tests/check-build-parity.py --apks` to inspect their packaged metadata, compiled class versions and launcher contents. GitHub run results and physical-device results are tracked separately.
+
+The mobile unit/widget gate now explicitly includes `apps_test.dart` and `android_flow_test.dart` (31 tests total). The latter is a host walkthrough with injected APIs and storage, not Android instrumentation. Mac builds should use `scripts/build-mobile.sh` to avoid ExFAT metadata files being treated as Android resources.

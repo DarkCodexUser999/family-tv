@@ -1,6 +1,6 @@
 # Family TV Remote
 
-Day 5 source approved and published; physical validation remains pending. One Flutter codebase for Android 8+/API 26 and iOS 15+ source. Pairing and a foreground-only Family TV remote pad use pinned HTTPS/WSS; existing TV launch logic is preserved.
+Days 6–7 Android alpha candidate; physical validation remains pending. One Flutter codebase for Android 8+/API 26 and iOS 15+ source. Pairing, a foreground-only pad and a searchable installed-app grid use pinned HTTPS/WSS; existing TV launch logic is preserved.
 
 ## Run from the monorepo root
 
@@ -26,7 +26,7 @@ Do not run bare flutter test against an ExFAT directory: ._test.dart metadata is
 
 The fingerprint is checked before any PIN is sent. The client rejects public/loopback/hostname targets, HTTP, redirects, proxy routing and oversized responses. Tokens/PINs never enter URLs or logs. Forget saved connection removes only this phone's local record; revoke access using Family TV settings on TV.
 
-## Local build result
+## Historical Day 5 build result
 
 Android debug APK built and its signature verified: package app.familytv.family_tv_remote, min API 26, target API 36, arm64-v8a/armeabi-v7a/x86_64. The debug universal APK is about 159 MiB; release size is not measured. Both legacy APK builds and the new app checks pass locally; Day 5 source is published on main after owner approval. No physical-phone verification is implied.
 
@@ -52,3 +52,9 @@ sh scripts/check-remote-interop.sh
 ```
 
 The second script runs the real Java transport and production Dart WSS connector on a private host interface with a fake launcher UI and synthetic credentials. It needs JDK17; no private interface produces an explicit skip. No hardware memory/latency or actual NSD claim. The remote preview is a Flutter widget render, not a device screenshot. See docs/DAY_5_REVIEW.md and protocol/THIRD_PARTY.md.
+
+## App grid and Android checkpoint — Days 6–7
+
+Open remote → Apps to search installed non-hidden TV apps and send one explicit launch request. Cached icons have placeholders if absent; a launch acknowledgement hands control to the physical remote. Backgrounding cancels requests and requires Refresh before another launch. Changing the TV address or revoking access requires explicit forget/re-pair; credentials are never silently forwarded.
+
+Current version: `0.1.0-alpha.1+2`. See [Week 1 alpha setup and evidence](../docs/WEEK_1_ALPHA.md). The 31-test phone suite includes a host widget walkthrough of saved-store recreation, pairing/pad/grid navigation and lifecycle recovery. The real Dart/Java TLS/WSS test covers app pages, thumbnails, launch replay and revoked access; neither test proves device behavior.

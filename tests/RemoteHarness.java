@@ -18,9 +18,12 @@ public final class RemoteHarness {
             public Map<String,String> load(){return new LinkedHashMap<>();}public boolean save(Map<String,String> value){return true;}
         });phones.add("11111111111111111111111111111111",new String(new char[64]).replace('\0','c'));
         LauncherBridge bridge=new LauncherBridge();ExecutorService main=Executors.newSingleThreadExecutor();
+        bridge.apps=new AppsEndpoint(200,Arrays.asList(new AppsEndpoint.App("tv.youtube","YouTube",
+                Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2uoAAAAASUVORK5CYII="))));
         Path output=Paths.get(args[2]);Files.write(output,new byte[0]);
         LauncherBridge.Ui ui=new LauncherBridge.Ui(){
             public void post(Runnable r){main.execute(r);}
+            public boolean launch(String pkg){return perform("LAUNCH:"+pkg);}
             public boolean perform(String action){try{Files.write(output,(action+"\n").getBytes("UTF-8"),StandardOpenOption.APPEND);}catch(IOException e){throw new IllegalStateException(e);}return true;}
         };bridge.resume(ui);
         Transport server=new Transport(InetAddress.getByName(args[1]),tls.getServerSocketFactory(),"host-interop",phones,null,bridge);

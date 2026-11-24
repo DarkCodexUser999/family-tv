@@ -130,6 +130,7 @@ class _AppsScreenState extends State<AppsScreen> with WidgetsBindingObserver {
                                   c.loading ||
                                       c.pending != null ||
                                       !c.active ||
+                                      c.needsRefresh ||
                                       c.error?.code == 'unauthorized'
                                   ? null
                                   : () => c.launch(app),

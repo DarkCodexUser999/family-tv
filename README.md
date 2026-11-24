@@ -2,7 +2,7 @@
 
 [![Build and regression checks](https://github.com/DarkCodexUser999/family-tv/actions/workflows/checks.yml/badge.svg)](https://github.com/DarkCodexUser999/family-tv/actions/workflows/checks.yml)
 
-A lightweight, family-oriented Fire TV launcher and Android companion remote, designed around an older Fire TV Stick and a small living-room television.
+A lightweight, family-oriented Fire TV launcher and Flutter companion remote, designed around an older Fire TV Stick and a small living-room television.
 
 **Status: experimental MVP.** The launcher is usable as a normal app. It is not a proven Amazon Home replacement, and the companion remote is not a system-wide remote. See [known limitations and test results](docs/TESTING.md) before installing.
 
@@ -14,8 +14,14 @@ A lightweight, family-oriented Fire TV launcher and Android companion remote, de
 | Hardware tested | 32-bit ARM, approximately 1 GB RAM; limited free memory |
 | Phone remote | Android 8.0 / API 26 or newer; broader device coverage remains unverified |
 | Implementation | Java, native Android Views; no Compose or native libraries; pinned NanoHTTPD transport |
-| Connectivity | Default-off HTTPS pairing/discovery; Day 5 candidate adds pinned WSS controls inside Family TV |
+| Connectivity | Default-off HTTPS pairing/discovery; Pinned WSS controls plus cached app browsing/launches inside Family TV |
 | Build | JDK 17, Android SDK 36, Build Tools 35.0.0; direct shell build |
+
+## Week 1 Android alpha
+
+The phone can pair, navigate foreground Family TV, search installed non-hidden apps and request launches through the existing TV routes. The app grid shows cached icons, launch feedback and the physical-remote handoff. Backgrounding closes requests; Refresh reconnects the grid without replaying a launch.
+
+**`0.1.0-alpha.1` is a host-validated candidate, not a device-certified release.** See [Android setup, checks and remaining gates](docs/WEEK_1_ALPHA.md). Editing rows/hidden apps, uploads and phone-side TMDB settings are future work. No accounts or app data are changed.
 
 ## Screenshots
 
@@ -65,7 +71,7 @@ Day 5 adds authenticated WSS state/events and a phone D-pad with no input replay
 ```text
 launcher/          TV activity, app catalog, artwork, local remote server
 remote/            Legacy native Android phone companion
-mobile/            Flutter Android/iOS pairing and Family TV pad
+mobile/            Flutter pairing, Family TV pad and searchable TV app grid
 protocol/          Versioned contracts, fixtures and security notes
 shared/            HMAC challenge-response protocol
 launcher/src/main/assets/

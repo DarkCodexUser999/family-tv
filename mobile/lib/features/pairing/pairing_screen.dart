@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/api/apps_api.dart';
 import 'pairing_controller.dart';
 import '../remote/remote_controller.dart';
 import '../remote/remote_screen.dart';
@@ -12,9 +13,11 @@ class PairingScreen extends StatefulWidget {
     super.key,
     required this.controller,
     this.remoteFactory,
+    this.appsFactory,
   });
   final PairingController controller;
   final RemoteController Function()? remoteFactory;
+  final AppsApi Function()? appsFactory;
   @override
   State<PairingScreen> createState() => _PairingScreenState();
 }
@@ -260,6 +263,7 @@ class _PairingScreenState extends State<PairingScreen>
                                 MaterialPageRoute(
                                   builder: (_) => RemoteScreen(
                                     credential: c.credential!,
+                                    appsFactory: widget.appsFactory,
                                     controller: widget.remoteFactory!(),
                                   ),
                                 ),

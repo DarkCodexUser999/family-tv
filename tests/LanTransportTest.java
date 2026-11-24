@@ -153,6 +153,9 @@ public final class LanTransportTest {
             check(request("GET","/v1/apps/test.app0/icon",auth).contains("image/png"),"authenticated thumbnail");
             check(request("GET","/v1/apps/test.hidden/icon",auth).startsWith("HTTP/1.1 404"),"hidden/unknown thumbnail");
             check(request("GET","/v1/apps/test.app0/icon","").startsWith("HTTP/1.1 401"),"thumbnail requires token");
+            for(String badPath:new String[]{"/v1/apps/launch","/v1/apps/icon","/v1/apps//icon","/v1/apps//launch"})
+                check(!request("GET",badPath,auth).startsWith("HTTP/1.1 200"),"malformed app path rejected");
+            check(uncaught.get()==null,"app route exception escaped worker");
             final int[] opened={0};
             LauncherBridge.Ui ui=new LauncherBridge.Ui(){
                 public void post(Runnable r){r.run();} public boolean perform(String action){return true;}
