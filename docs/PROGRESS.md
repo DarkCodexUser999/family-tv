@@ -145,3 +145,9 @@ Issue #15. Server increment adds a private atomic hidden override over bundled e
 Day 10 phone editor adds search, hide/show switches, named confirmation, unsaved-discard protection, conflict/background recovery and disabled unavailable default policies. Actual Dart/Java TLS integration verifies hide/unhide while retaining Sony's default exclusion and rejects replayed launches while hidden. The late queued-OK/tile dispatch path now checks cached visibility without I/O; actual physical races/focus fallback remain pending. Candidate `0.2.0-dev.2+4` builds once on the SSD.
 
 Phone increment evidence: analyzer clean; the 50-case phone suite plus seven hidden-editor cases pass (51 distinct cases), actual Dart/Java TLS hide/unhide/replay rejection passes, and the dev Android APK built once in 214.5 s with v2 signature verification (code 4, API 26–36, ARM32/ARM64/x86_64). The launcher was rebuilt only for the added dispatch/snapshot race guards; v1/v2/v3 signatures pass. Restore, bundled hidden defaults, task flags and dependency lock are unchanged. See DAY_10_HIDDEN.md.
+
+### Day 10 publication
+
+Published `fd3a8cd` (atomic visibility override/management catalog) and `76d8831` (phone editor, confirmation and final launch guards). This evidence update is the third meaningful increment. Local analyzer, full 50-case baseline plus seven hidden cases (51 distinct), real TLS hide/unhide/replay checks, native/protocol regressions and signed launcher/Android dev APK pass. Final CI and project issue/card evidence are verified separately before SSD handoff; no unchanged build is repeated for this documentation.
+
+Issue #15 remains open for physical tile/focus/queued-key/account/memory validation; native iOS is still blocked. Root assets/task flags/restore and dependency lock stayed unchanged. Next is Day 11 artwork upload only after a fresh briefing/go. At session end stop project tools and safely eject ExSSD.

@@ -108,3 +108,7 @@ Days 6–7 added cached phone app browsing/launches and integrated Android lifec
 ## Days 8–9 — November 24, 2026
 
 [Day 8](DAY_8_IOS.md) records iPhone recovery and mocked secure-store/config checks; Xcode/native validation is blocked. [Day 9](DAY_9_ROWS.md) records revisioned atomic row overrides and phone editing/conflict/lifecycle coverage. Passed locally: analyzer/44 phone tests, actual pinned Dart/Java TLS/WSS row/app integration, native/protocol gates and signed TV/phone builds. Fake storage and host UI do not substitute for actual Keychain, Android AtomicFile crash or TV focus/memory/latency tests. No new device captures or performance numbers were produced.
+
+## Day 10 — November 24, 2026
+
+See DAY_10_HIDDEN.md for reversible phone visibility editing, default/Sony confirmation, hidden launch rejection, conflict and background recovery. Passed: analyzer; full phone baseline plus seven hidden cases (51 distinct); actual pinned Dart/Java TLS hide/unhide/replay; native/protocol gates; signed TV/Android dev APKs. Fake storage and host UI do not establish actual focus fallback, queued-key timing, crash recovery, account continuity, PSS or latency; physical tests remain pending.
