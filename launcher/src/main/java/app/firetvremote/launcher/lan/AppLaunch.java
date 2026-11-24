@@ -14,7 +14,7 @@ final class AppLaunch {
     AppLaunch(LauncherBridge bridge){this.bridge=bridge;}
     String launch(String phone,String pkg,String id,long revision,Guard authorized) {
         String key=phone+":"+id, value=pkg+":"+revision;
-        synchronized(seen){if(seen.containsKey(key))return value.equals(seen.get(key))?"ok":"invalid_request";}
+        synchronized(seen){if(seen.containsKey(key))return !value.equals(seen.get(key))?"invalid_request":bridge.apps==null||!bridge.apps.contains(pkg)?"not_found":"ok";}
         AppsEndpoint snapshot=bridge.apps;
         if(snapshot==null || snapshot.revision!=revision)return "stale_catalog";
         if(!snapshot.contains(pkg))return "not_found";

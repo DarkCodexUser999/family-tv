@@ -7,6 +7,8 @@ public final class LauncherBridge {
     public interface Signal { void changed(); }
     public volatile boolean tmdbConfigured;
     public volatile AppsEndpoint apps;
+    public volatile AppsEndpoint management;
+    public volatile HiddenEndpoint hidden;
     public volatile RowsEndpoint rows;
     public void rowsChanged(){Ui target=ui;if(target!=null)target.post(target::rowsChanged);}
     private volatile Ui ui;

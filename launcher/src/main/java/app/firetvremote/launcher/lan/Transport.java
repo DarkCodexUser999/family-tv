@@ -102,12 +102,13 @@ public final class Transport extends NanoWSD {
         if (!(host + ":" + getListeningPort()).equals(session.getHeaders().get("host"))) {
             return error(Response.Status.BAD_REQUEST, "invalid_request");
         }
-        if (session.getQueryParameterString()!=null && !"/v1/apps".equals(session.getUri()) || session.getHeaders().containsKey("transfer-encoding")
+        if (session.getQueryParameterString()!=null && !"/v1/apps".equals(session.getUri()) && !"/v1/hidden/apps".equals(session.getUri()) || session.getHeaders().containsKey("transfer-encoding")
                 || session.getHeaders().containsKey("expect")) return error(Response.Status.BAD_REQUEST,"invalid_request");
         if ("/v1/pair".equals(session.getUri()) && pairing!=null) return pair(session);
         if (!"/v1/info".equals(session.getUri())) {
             String phone=AuthFilter.phone(phones,session.getHeaders().get("authorization"));
             if(phone==null)return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            if(bridge!=null && session.getUri().startsWith("/v1/hidden"))return hidden(session,phone);
             if(bridge!=null && "/v1/rows".equals(session.getUri()))return rows(session,phone);
             if(bridge!=null && session.getUri().startsWith("/v1/apps"))return apps(session,phone);
             if(events!=null && "/v1/status".equals(session.getUri()) && session.getMethod()==Method.GET && emptyBody(session))
@@ -204,6 +205,34 @@ public final class Transport extends NanoWSD {
             bridge.rowsChanged();return json(Response.Status.OK,endpoint.snapshot().json());
             }
         }catch(IOException|IllegalArgumentException invalid){return error(Response.Status.BAD_REQUEST,"invalid_request");}
+    }
+    private Response hidden(IHTTPSession session,String phone) {
+        HiddenEndpoint endpoint=bridge.hidden;
+        if(endpoint==null)return error(Response.Status.SERVICE_UNAVAILABLE,"catalog_unavailable");
+        if(session.getMethod()==Method.GET && emptyBody(session)){
+            if("/v1/hidden".equals(session.getUri()))return json(Response.Status.OK,endpoint.snapshot().json());
+            if("/v1/hidden/apps".equals(session.getUri()) && bridge.management!=null){
+                String query=session.getQueryParameterString(),cursor=null;
+                if(query!=null){if(!query.matches("cursor=[0-9]{1,15}_[0-9]{1,2}"))return error(Response.Status.BAD_REQUEST,"invalid_request");cursor=query.substring(7);}
+                try{return json(Response.Status.OK,bridge.management.page(cursor,25,endpoint.snapshot().packages));}
+                catch(IllegalArgumentException|IllegalStateException bad){return error(Response.Status.CONFLICT,"conflict");}
+            }
+        }
+        if(!"/v1/hidden".equals(session.getUri())||session.getMethod()!=Method.PUT||!"application/json".equals(session.getHeaders().get("content-type")))return error(Response.Status.BAD_REQUEST,"invalid_request");
+        try{
+            String length=session.getHeaders().get("content-length");if(length==null||!length.matches("[0-9]{1,4}"))throw new IllegalArgumentException();
+            int size=Integer.parseInt(length);if(size<1||size>8192)throw new IllegalArgumentException();
+            byte[] bytes=new byte[size];int offset=0,n;
+            while(offset<size){n=session.getInputStream().read(bytes,offset,size-offset);if(n<0)throw new IOException();offset+=n;}
+            String body=java.nio.charset.StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+            AppsEndpoint management=bridge.management;String auth=session.getHeaders().get("authorization");
+            synchronized(endpoint){
+                String result=endpoint.replace(body,session.getHeaders().get("if-match"),management,()->phone.equals(AuthFilter.phone(phones,auth))&&management==bridge.management);
+                if(result!=null)return error("unauthorized".equals(result)?Response.Status.UNAUTHORIZED:"invalid_request".equals(result)?Response.Status.BAD_REQUEST:"not_found".equals(result)?Response.Status.NOT_FOUND:"storage_unavailable".equals(result)?Response.Status.SERVICE_UNAVAILABLE:Response.Status.CONFLICT,result);
+                bridge.apps=management.visible(endpoint.snapshot().packages);
+                bridge.rowsChanged();return json(Response.Status.OK,endpoint.snapshot().json());
+            }
+        }catch(IOException|IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
     }
     private boolean emptyBody(IHTTPSession session){return !session.getHeaders().containsKey("content-length") || "0".equals(session.getHeaders().get("content-length"));}
     private Response upgrade(IHTTPSession session,String phone){

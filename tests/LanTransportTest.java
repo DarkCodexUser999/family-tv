@@ -182,6 +182,16 @@ public final class LanTransportTest {
             check(request("POST","/v1/apps/test.app0/launch",launchHeaders.replace(":123",":122").replace("open1","open3")).contains("stale_catalog"),"old revision rejected");
             bridge.pause(ui);
             check(request("POST","/v1/apps/test.app0/launch",launchHeaders.replace("open1","open4")).contains("ui_unavailable"),"background launch rejected");
+            bridge.management=bridge.apps;
+            bridge.hidden=new HiddenEndpoint(new RowsEndpointTest.Disk(),new java.util.HashSet<>());
+            check(request("GET","/v1/hidden","").startsWith("HTTP/1.1 401"),"hidden auth");
+            check(request("GET","/v1/hidden/apps",auth).contains("test.app0"),"management catalog");
+            String hideBody=new HiddenEndpoint.State(0,java.util.Arrays.asList("test.app0")).json();
+            String hideHeaders=auth+"Content-Type: application/json\r\nIf-Match: \"0\"\r\nContent-Length: "+hideBody.length()+"\r\n\r\n"+hideBody;
+            check(request("PUT","/v1/hidden",hideHeaders).contains("\"revision\":1"),"wire hide");
+            check(!bridge.apps.contains("test.app0"),"hidden immediately removed from launch catalog");
+            check(request("PUT","/v1/hidden",hideHeaders).startsWith("HTTP/1.1 409"),"wire stale hide");
+            check(request("GET","/v1/hidden/apps",auth).contains("\"hidden\":true"),"management hidden flag");
             phones.revokeAll();
             check(request("GET","/v1/status","Authorization: Bearer "+token+"\r\n").startsWith("HTTP/1.1 401"),"wire revoked token rejected");
             check(!request("GET","/v1/info","").contains("pairingSessionId"),"consumed session hidden");

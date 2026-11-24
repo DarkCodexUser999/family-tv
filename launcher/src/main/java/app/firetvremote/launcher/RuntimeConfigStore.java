@@ -18,8 +18,17 @@ final class RuntimeConfigStore {
             filtered.add(allowed);
         }
         if(filtered.isEmpty())filtered.add(new ArrayList<>());
-        final AtomicFile file=new AtomicFile(new File(context.getFilesDir(),"remote-rows.json"));
-        rows=new RowsEndpoint(new RowsEndpoint.Disk(){
+        rows=new RowsEndpoint(disk(context,"remote-rows.json"),new RowsEndpoint.State(0,filtered));
+        return rows;
+    }
+    private static app.firetvremote.launcher.lan.HiddenEndpoint hidden;
+    static synchronized app.firetvremote.launcher.lan.HiddenEndpoint hidden(Context context,Set<String> defaults) {
+        if(hidden==null)hidden=new app.firetvremote.launcher.lan.HiddenEndpoint(disk(context,"remote-hidden.json"),defaults);
+        return hidden;
+    }
+    private static RowsEndpoint.Disk disk(Context context,String name) {
+        final AtomicFile file=new AtomicFile(new File(context.getFilesDir(),name));
+        return new RowsEndpoint.Disk(){
             public String read()throws IOException {
                 try {
                 if(!file.getBaseFile().exists() && !new File(file.getBaseFile()+".bak").exists())return null;
@@ -38,7 +47,7 @@ final class RuntimeConfigStore {
                     if(!json.equals(read()))throw new IOException("Row write verification failed");
                 }catch(IOException|SecurityException failed){if(output!=null)file.failWrite(output);throw new IOException("Rows could not be saved",failed);}
             }
-        },new RowsEndpoint.State(0,filtered));
-        return rows;
+        };
     }
+
 }

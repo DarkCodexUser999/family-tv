@@ -21,6 +21,7 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairingWindow.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairJson.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AuthFilter.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/HiddenEndpoint.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/RowsEndpoint.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AppLaunch.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AppsEndpoint.java" \
@@ -31,6 +32,7 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/FrameDeadlineInput.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/LanControl.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/Revocations.java" \
+    "$root/tests/HiddenEndpointTest.java" \
     "$root/tests/RowsEndpointTest.java" \
     "$root/tests/AppLaunchTest.java" \
     "$root/tests/LanControlTest.java" \
@@ -48,3 +50,5 @@ fi
 "$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.AppLaunchTest
 
 "$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.RowsEndpointTest
+
+"$JAVA_HOME/bin/java" -cp "$build/classes:$lib" app.firetvremote.launcher.lan.HiddenEndpointTest

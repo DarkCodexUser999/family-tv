@@ -27,7 +27,12 @@ public final class AppsEndpoint {
     }
     public boolean contains(String pkg) { for(App app:apps) if(app.pkg.equals(pkg))return true;return false; }
     public byte[] icon(String pkg) { for(App app:apps)if(app.pkg.equals(pkg))return app.icon==null?null:app.icon.clone();return null; }
-    public String page(String cursor,int limit) {
+    public AppsEndpoint visible(Set<String> hidden) {
+        List<App> visible=new ArrayList<>();for(App app:apps)if(!hidden.contains(app.pkg))visible.add(app);
+        return new AppsEndpoint(revision,visible);
+    }
+    public String page(String cursor,int limit){return page(cursor,limit,Collections.emptySet());}
+    public String page(String cursor,int limit,Set<String> hidden) {
         if(limit<1 || limit>25)throw new IllegalArgumentException();
         int start=0;
         if(cursor!=null) {
@@ -42,7 +47,7 @@ public final class AppsEndpoint {
         for(int i=start;i<end;i++) {
             App app=apps.get(i);if(i>start)json.append(',');
             json.append("{\"package\":").append(quote(app.pkg)).append(",\"label\":").append(quote(app.label))
-                .append(",\"hidden\":false,\"iconRevision\":").append(revision).append('}');
+                .append(",\"hidden\":").append(hidden.contains(app.pkg)).append(",\"iconRevision\":").append(revision).append('}');
         }
         return json.append("],\"nextCursor\":").append(end<apps.size()?quote(revision+"_"+end):"null").append('}').toString();
     }

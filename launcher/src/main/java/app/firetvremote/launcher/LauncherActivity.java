@@ -33,11 +33,12 @@ public final class LauncherActivity extends Activity {
     private static final String SETTINGS_KEY = "settings";
     private Button gear;
     private boolean catalogFailed, catalogDirty;
-    private long loadedRowsRevision=-1;
+    private long loadedRowsRevision=-1,loadedHiddenRevision=-1;
     private final android.content.BroadcastReceiver packageChanges=new android.content.BroadcastReceiver(){
         @Override public void onReceive(android.content.Context context,Intent intent){
             catalogDirty=true;
             app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps=null;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.management=null;
             if(!isSettingsLaunchPaused && !isFinishing())recreate();
         }
     };
@@ -110,6 +111,7 @@ public final class LauncherActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps=null;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.management=null;
         android.content.IntentFilter changes=new android.content.IntentFilter();
         changes.addAction(Intent.ACTION_PACKAGE_ADDED);changes.addAction(Intent.ACTION_PACKAGE_REMOVED);
         changes.addAction(Intent.ACTION_PACKAGE_CHANGED);changes.addDataScheme("package");
@@ -141,7 +143,7 @@ public final class LauncherActivity extends Activity {
     private void loadCatalog(String restore) {
         Map<String, CatalogEntry> installed;
         try {
-            installed = AppCatalog.list(this, hiddenPackages, ownTaskPackages, artwork);
+            installed = AppCatalog.list(this, java.util.Collections.emptySet(), ownTaskPackages, artwork);
         } catch (RuntimeException error) {
             Log.w(LOG_TAG, "App discovery unavailable", error);
             runOnUiThread(() -> {
@@ -152,6 +154,10 @@ public final class LauncherActivity extends Activity {
             return;
         }
 
+        final app.firetvremote.launcher.lan.HiddenEndpoint exclusions=RuntimeConfigStore.hidden(this,hiddenPackages);
+        final long hiddenRevision=exclusions.snapshot().revision;
+        final Map<String,CatalogEntry> managementInstalled=new LinkedHashMap<>(installed);
+        installed.keySet().removeAll(exclusions.snapshot().packages);
         final app.firetvremote.launcher.lan.RowsEndpoint config=RuntimeConfigStore.open(this,RowConfig.read(this),installed.keySet());
         final app.firetvremote.launcher.lan.RowsEndpoint.State rowSettings=config.snapshot();
         List<List<TileData>> prepared = new ArrayList<>();
@@ -167,14 +173,15 @@ public final class LauncherActivity extends Activity {
         }
         runOnUiThread(() -> {
             if (catalogDirty || isDestroyed() || isFinishing()) return;
-            if(config.snapshot().revision!=rowSettings.revision){recreate();return;}
-            loadedRowsRevision=rowSettings.revision;
+            if(config.snapshot().revision!=rowSettings.revision || exclusions.snapshot().revision!=hiddenRevision){recreate();return;}
+            loadedRowsRevision=rowSettings.revision;loadedHiddenRevision=hiddenRevision;
+            app.firetvremote.launcher.lan.LauncherBridge.SHARED.hidden=exclusions;
             app.firetvremote.launcher.lan.LauncherBridge.SHARED.rows=config;
             rowData.addAll(prepared);
             buildHome();
             restoreFocus(restore);
             if(app.firetvremote.launcher.lan.LanService.enabled(this))
-                artwork.submitCatalog(() -> preparePhoneCatalog(installed));
+                artwork.submitCatalog(() -> preparePhoneCatalog(managementInstalled));
         });
     }
 
@@ -194,7 +201,10 @@ public final class LauncherActivity extends Activity {
         runOnUiThread(() -> {
             if(!catalogDirty && !isDestroyed() && !isFinishing()
                     && app.firetvremote.launcher.lan.LanService.enabled(this))
-                app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps=phoneCatalog;
+                {
+                app.firetvremote.launcher.lan.LauncherBridge.SHARED.management=phoneCatalog;
+                app.firetvremote.launcher.lan.LauncherBridge.SHARED.apps=phoneCatalog.visible(app.firetvremote.launcher.lan.LauncherBridge.SHARED.hidden.snapshot().packages);
+            }
         });
     }
 
@@ -656,7 +666,8 @@ public final class LauncherActivity extends Activity {
 
     private boolean rowsChanged() {
         app.firetvremote.launcher.lan.RowsEndpoint config=app.firetvremote.launcher.lan.LauncherBridge.SHARED.rows;
-        return loadedRowsRevision>=0 && config!=null && config.snapshot().revision!=loadedRowsRevision;
+        app.firetvremote.launcher.lan.HiddenEndpoint hidden=app.firetvremote.launcher.lan.LauncherBridge.SHARED.hidden;
+        return loadedRowsRevision>=0 && config!=null && (config.snapshot().revision!=loadedRowsRevision || hidden!=null&&hidden.snapshot().revision!=loadedHiddenRevision);
     }
     private void applyRowsIfReady() {
         if(rowsChanged() && !isSettingsLaunchPaused && pendingTile==null && !settingsOpening

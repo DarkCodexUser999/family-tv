@@ -137,3 +137,7 @@ Issues #13/#14 stay open/Blocked: Xcode is absent; no iPhone, Android phone, emu
 Demo now: host widget pairing/pad/apps/row-move/save/return, large text and conflict recovery; real TLS transport loads and saves rows with revision rejection. Demo later: repeat through two real phones and verify TV row order/focus while foreground and after returning from an app.
 
 Next: Day 10 hidden-app editing requires a new briefing/go. No Day 10 work started. Finish by verifying project cards/CI, stopping project-owned build tools and safely detaching/ejecting the SSD; the drive stayed mounted only because the owner extended this session to Days 8–9.
+
+## Day 10 — hidden app editor (2026-11-24)
+
+Issue #15. Server increment adds a private atomic hidden override over bundled exclusions, including Sony LIV. Authenticated management pages include hidden installed apps; normal catalogs, rows and launch requests exclude them. Accepted-request replay cannot bypass a new hide. Revision conflicts, strict bounds, bad storage recovery and explicit default-unhide are tested. Shared cached icon records avoid duplicate image storage. Config writes stay off the UI thread; existing safe lifecycle rebuild/focus fallback applies the change. No package/data/settings operation or restore/task-flag edit. Native regressions (83 TLS and 15 hidden-store guards), baseline 44 phone tests and signed launcher build pass; physical behavior remains pending.

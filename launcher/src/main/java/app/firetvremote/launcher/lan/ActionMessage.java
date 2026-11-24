@@ -59,7 +59,7 @@ public final class ActionMessage {
         java.util.List<Object> array(int depth) {
             if(depth>3)throw new IllegalArgumentException();take('[');
             java.util.List<Object> list=new java.util.ArrayList<>();if(peek()==']'){pos++;return list;}
-            while(true){if(list.size()>=24)throw new IllegalArgumentException();list.add(value(depth));
+            while(true){if(list.size()>=256)throw new IllegalArgumentException();list.add(value(depth));
                 char c=peek();pos++;if(c==']')return list;if(c!=',')throw new IllegalArgumentException();}
         }
         Map<String,Object> object(int depth) {
