@@ -481,6 +481,195 @@
           }
         }
       }
+    },
+    "/v1/artwork/{package}/{kind}": {
+      "parameters": [
+        {
+          "name": "package",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$",
+            "maxLength": 160
+          }
+        },
+        {
+          "name": "kind",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "tile",
+              "backdrop"
+            ]
+          }
+        }
+      ],
+      "put": {
+        "operationId": "stageArtwork",
+        "description": "Stage only, never auto-publish. PNG/JPEG <=2 MiB and <=8 MP. Single staged job; receipt expires after 60 seconds. Private total artwork quota 32 MiB.",
+        "parameters": [
+          {
+            "name": "X-Crop-X",
+            "in": "header",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000,
+              "default": 500
+            }
+          },
+          {
+            "name": "X-Crop-Y",
+            "in": "header",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000,
+              "default": 500
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "maxLength": 2097152
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "maxLength": 2097152
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Versioned upload receipt or acknowledgement"
+          },
+          "default": {
+            "description": "Authenticated bounded error; previous image remains intact on upload failure"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "resetArtwork",
+        "description": "Remove only private uploaded override, restoring TV-local/default artwork.",
+        "responses": {
+          "200": {
+            "description": "Versioned upload receipt or acknowledgement"
+          },
+          "default": {
+            "description": "Authenticated bounded error; previous image remains intact on upload failure"
+          }
+        }
+      }
+    },
+    "/v1/artwork/{package}/{kind}/commit": {
+      "parameters": [
+        {
+          "name": "package",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$",
+            "maxLength": 160
+          }
+        },
+        {
+          "name": "kind",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "tile",
+              "backdrop"
+            ]
+          }
+        }
+      ],
+      "post": {
+        "operationId": "commitArtwork",
+        "description": "Authenticated owner-bound receipt; no body, no automatic retry.",
+        "parameters": [
+          {
+            "name": "X-Upload-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versioned upload receipt or acknowledgement"
+          },
+          "default": {
+            "description": "Authenticated bounded error; previous image remains intact on upload failure"
+          }
+        }
+      }
+    },
+    "/v1/artwork/{package}/{kind}/cancel": {
+      "parameters": [
+        {
+          "name": "package",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$",
+            "maxLength": 160
+          }
+        },
+        {
+          "name": "kind",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "tile",
+              "backdrop"
+            ]
+          }
+        }
+      ],
+      "post": {
+        "operationId": "cancelArtwork",
+        "description": "Authenticated owner-bound receipt; no body, no automatic retry.",
+        "parameters": [
+          {
+            "name": "X-Upload-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versioned upload receipt or acknowledgement"
+          },
+          "default": {
+            "description": "Authenticated bounded error; previous image remains intact on upload failure"
+          }
+        }
+      }
     }
   }
 }

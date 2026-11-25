@@ -151,3 +151,11 @@ Phone increment evidence: analyzer clean; the 50-case phone suite plus seven hid
 Published `fd3a8cd` (atomic visibility override/management catalog) and `76d8831` (phone editor, confirmation and final launch guards). This evidence update is the third meaningful increment. Local analyzer, full 50-case baseline plus seven hidden cases (51 distinct), real TLS hide/unhide/replay checks, native/protocol regressions and signed launcher/Android dev APK pass. Final CI and project issue/card evidence are verified separately before SSD handoff; no unchanged build is repeated for this documentation.
 
 Issue #15 remains open for physical tile/focus/queued-key/account/memory validation; native iOS is still blocked. Root assets/task flags/restore and dependency lock stayed unchanged. Next is Day 11 artwork upload only after a fresh briefing/go. At session end stop project tools and safely eject ExSSD.
+
+## Day 11 — artwork upload (2026-11-25)
+- Issue #16: authenticated bounded PNG/JPEG staging, sampled crop/re-encode, owner receipt and atomic replacement; prior images survive failures.
+- Phone system picker/crop preview, upload progress/cancel and confirmed reset; no new runtime dependency or launch/focus/navigation changes.
+- Commits: f72f3dc (validation), 63e708a (replace/picker/preview), 85af3ab (progress/cancel/reset), final failure-test/doc increment.
+- Passed: targeted staging/failure/quota tests, 17 artwork TLS guards, four artwork widgets, protocol validation and Java source compile; full host gate ONCE.
+- No APK builds/screenshots/installs; subsequent CI build jobs skipped as requested. Hardware/native picker/codec checks remain pending.
+- Next: Day 12 only after briefing/go; publish/verify all four commits, update the board and safely eject ExSSD.

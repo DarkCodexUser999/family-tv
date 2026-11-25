@@ -32,6 +32,8 @@ public final class ArtworkUploadTest {
    jobs.commit("phone","tv.youtube","tile",second,()->true);check(Arrays.equals(Files.readAllBytes(target.toPath()),bytes),"atomic replacement");
    jobs.reset("tv.youtube","tile",()->true);check(!target.exists()&&changes[0]==2,"reset restores fallback");
    File quota=new File(root,"quota.jpg");try(RandomAccessFile out=new RandomAccessFile(quota,"rw")){out.setLength(32L*1024*1024);}
+   MediaJobs low=new MediaJobs(new File(root.getPath()){@Override public long getUsableSpace(){return 0;}},(a,b,c,x,y)->{},p->{});
+   reject(()->low.stage("phone","tv.youtube","tile",new ByteArrayInputStream(bytes),bytes.length,500,500,()->true));
    String over=jobs.stage("phone","tv.youtube","tile",new ByteArrayInputStream(bytes),bytes.length,500,500,()->true);reject(()->jobs.commit("phone","tv.youtube","tile",over,()->true));
    check(!target.exists(),"quota leaves prior default");
    System.out.println("PASS: "+checks+" artwork validation/staging/atomic/cancel/reset/quota guards; Android codec not executed on host");
