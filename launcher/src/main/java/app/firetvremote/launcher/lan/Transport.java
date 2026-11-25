@@ -238,7 +238,7 @@ public final class Transport extends NanoWSD {
     }
     private Response artwork(IHTTPSession session,String phone){
         String path=session.getUri();
-        if(!path.matches("/v1/artwork/[A-Za-z0-9_.]{1,160}/(tile|backdrop)(/commit)?"))return error(Response.Status.BAD_REQUEST,"invalid_request");
+        if(!path.matches("/v1/artwork/[A-Za-z0-9_.]{1,160}/(tile|backdrop)(/(commit|cancel))?"))return error(Response.Status.BAD_REQUEST,"invalid_request");
         String[] parts=path.split("/");String pkg=parts[3],kind=parts[4];
         AppsEndpoint catalog=bridge.management;MediaJobs jobs=bridge.artwork;
         if(catalog==null||jobs==null)return error(Response.Status.SERVICE_UNAVAILABLE,"busy");
@@ -255,7 +255,10 @@ public final class Transport extends NanoWSD {
                 String id=jobs.stage(phone,pkg,kind,session.getInputStream(),size,x,y,guard);
                 return json(Response.Status.OK,"{\"apiVersion\":1,\"uploadId\":\""+id+"\"}");
             }
-            if(session.getMethod()==Method.POST && parts.length==6 && emptyBody(session))jobs.commit(phone,pkg,kind,session.getHeaders().get("x-upload-id"),guard);
+            if(session.getMethod()==Method.POST && parts.length==6 && emptyBody(session)){
+                if("cancel".equals(parts[5])){if(!guard.valid())throw new IOException("unauthorized");jobs.cancel(phone,session.getHeaders().get("x-upload-id"));}
+                else jobs.commit(phone,pkg,kind,session.getHeaders().get("x-upload-id"),guard);
+            }
             else if(session.getMethod()==Method.DELETE && parts.length==5 && emptyBody(session))jobs.reset(pkg,kind,guard);
             else throw new IllegalArgumentException();
             return json(Response.Status.OK,"{\"apiVersion\":1,\"accepted\":true}");

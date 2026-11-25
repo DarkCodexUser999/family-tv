@@ -111,4 +111,49 @@ void main() {
     expect(api.uploads, 0);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets('progress and cancel do not replay a pending upload', (
+    tester,
+  ) async {
+    final api = FakeArtwork()..pending = Completer<void>();
+    await screen(tester, api);
+    final dynamic state = tester.state(find.byType(ArtworkScreen));
+    await tester.runAsync(() async {
+      await state.pick();
+    });
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Upload artwork'));
+    await tester.tap(find.text('Upload artwork'));
+    await tester.pump();
+    await tester.scrollUntilVisible(find.text('Cancel upload'), 150);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    await tester.tap(find.text('Cancel upload'));
+    api.pending!.complete();
+    await tester.pumpAndSettle();
+    expect(api.uploads, 1);
+    expect(
+      find.text('Upload canceled. Previous artwork retained.'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+    'reset requires confirmation and cancel does not change artwork',
+    (tester) async {
+      final api = FakeArtwork();
+      await screen(tester, api);
+      await tester.ensureVisible(find.text('Reset uploaded artwork'));
+      await tester.tap(find.text('Reset uploaded artwork'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(api.resets, 0);
+      await tester.tap(find.text('Reset uploaded artwork'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reset'));
+      await tester.pumpAndSettle();
+      expect(api.resets, 1);
+      expect(find.text('Uploaded artwork reset.'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

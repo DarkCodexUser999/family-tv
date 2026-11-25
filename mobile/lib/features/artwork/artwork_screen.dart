@@ -271,6 +271,24 @@ class _ArtworkScreenState extends State<ArtworkScreen>
                 : upload,
             child: const Text('Upload artwork'),
           ),
+          if (busy)
+            LinearProgressIndicator(value: committing ? null : progress),
+          if (busy && !committing)
+            TextButton(
+              onPressed: () {
+                generation++;
+                widget.api.cancel();
+                setState(() {
+                  busy = false;
+                  message = 'Upload canceled. Previous artwork retained.';
+                });
+              },
+              child: const Text('Cancel upload'),
+            ),
+          OutlinedButton(
+            onPressed: busy || pkg == null ? null : reset,
+            child: const Text('Reset uploaded artwork'),
+          ),
         ],
       ),
     ),

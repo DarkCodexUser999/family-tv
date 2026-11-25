@@ -37,6 +37,11 @@ public final class ArtworkTransportTest {
    File target=MediaJobs.file(root,"tv.youtube","tile");check(!target.exists());
    check(request("POST",path+"/commit",auth+"X-Upload-Id: wrong\r\n",new byte[0]).startsWith("HTTP/1.1 400"));
    check(request("POST",path+"/commit",auth+"X-Upload-Id: "+id+"\r\n",new byte[0]).startsWith("HTTP/1.1 200"));check(target.exists());
+   String staged=request("PUT",path,auth+type,image);String canceled=staged.replaceAll("(?s).*\\\"uploadId\\\":\\\"([0-9a-f]{32})\\\".*","$1");
+   check(request("POST",path+"/cancel",auth+"X-Upload-Id: "+canceled+"\r\n",new byte[0]).startsWith("HTTP/1.1 200"));
+   check(request("POST",path+"/commit",auth+"X-Upload-Id: "+canceled+"\r\n",new byte[0]).startsWith("HTTP/1.1 400"));check(target.exists());
+   check(request("DELETE",path,"",new byte[0]).startsWith("HTTP/1.1 401"));check(target.exists());
+   check(request("DELETE",path,auth,new byte[0]).startsWith("HTTP/1.1 200"));check(!target.exists());
    phones.revokeAll();check(request("PUT",path,auth+type,image).startsWith("HTTP/1.1 401"));
    System.out.println("PASS: "+checks+" artwork-only real TLS auth, stage, commit and revoked-token checks");
   }finally{server.stop();File[] files=root.listFiles();if(files!=null)for(File f:files)f.delete();root.delete();}
