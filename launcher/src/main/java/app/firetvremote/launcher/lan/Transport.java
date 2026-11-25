@@ -108,6 +108,7 @@ public final class Transport extends NanoWSD {
         if (!"/v1/info".equals(session.getUri())) {
             String phone=AuthFilter.phone(phones,session.getHeaders().get("authorization"));
             if(phone==null)return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            if(bridge!=null && session.getUri().startsWith("/v1/artwork/"))return artwork(session,phone);
             if(bridge!=null && session.getUri().startsWith("/v1/hidden"))return hidden(session,phone);
             if(bridge!=null && "/v1/rows".equals(session.getUri()))return rows(session,phone);
             if(bridge!=null && session.getUri().startsWith("/v1/apps"))return apps(session,phone);
@@ -234,6 +235,32 @@ public final class Transport extends NanoWSD {
                 bridge.rowsChanged();return json(Response.Status.OK,endpoint.snapshot().json());
             }
         }catch(IOException|IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
+    }
+    private Response artwork(IHTTPSession session,String phone){
+        String path=session.getUri();
+        if(!path.matches("/v1/artwork/[A-Za-z0-9_.]{1,160}/(tile|backdrop)(/commit)?"))return error(Response.Status.BAD_REQUEST,"invalid_request");
+        String[] parts=path.split("/");String pkg=parts[3],kind=parts[4];
+        AppsEndpoint catalog=bridge.management;MediaJobs jobs=bridge.artwork;
+        if(catalog==null||jobs==null)return error(Response.Status.SERVICE_UNAVAILABLE,"busy");
+        if(!catalog.contains(pkg))return error(Response.Status.NOT_FOUND,"not_found");
+        if(!jobs.acquire())return error(Response.Status.SERVICE_UNAVAILABLE,"busy");
+        String authorization=session.getHeaders().get("authorization");
+        MediaJobs.Guard guard=()->phone.equals(AuthFilter.phone(phones,authorization))&&bridge.management==catalog;
+        try{
+            if(session.getMethod()==Method.PUT && parts.length==5){
+                String type=session.getHeaders().get("content-type"),length=session.getHeaders().get("content-length");
+                if(!("image/png".equals(type)||"image/jpeg".equals(type))||length==null||!length.matches("[0-9]{1,7}"))throw new IllegalArgumentException();
+                int size=Integer.parseInt(length);if(size<8||size>UploadValidator.MAX_BYTES)throw new IllegalArgumentException();
+                int x=Integer.parseInt(session.getHeaders().containsKey("x-crop-x")?session.getHeaders().get("x-crop-x"):"500"),y=Integer.parseInt(session.getHeaders().containsKey("x-crop-y")?session.getHeaders().get("x-crop-y"):"500");
+                String id=jobs.stage(phone,pkg,kind,session.getInputStream(),size,x,y,guard);
+                return json(Response.Status.OK,"{\"apiVersion\":1,\"uploadId\":\""+id+"\"}");
+            }
+            if(session.getMethod()==Method.POST && parts.length==6 && emptyBody(session))jobs.commit(phone,pkg,kind,session.getHeaders().get("x-upload-id"),guard);
+            else if(session.getMethod()==Method.DELETE && parts.length==5 && emptyBody(session))jobs.reset(pkg,kind,guard);
+            else throw new IllegalArgumentException();
+            return json(Response.Status.OK,"{\"apiVersion\":1,\"accepted\":true}");
+        }catch(IOException|IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
+        finally{jobs.release();}
     }
     private boolean emptyBody(IHTTPSession session){return !session.getHeaders().containsKey("content-length") || "0".equals(session.getHeaders().get("content-length"));}
     private Response upgrade(IHTTPSession session,String phone){

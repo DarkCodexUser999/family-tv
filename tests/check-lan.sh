@@ -16,6 +16,8 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ServerLimits.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/HeaderInput.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/BoundedRunner.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/UploadValidator.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/MediaJobs.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/Transport.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairingStore.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/PairingWindow.java" \

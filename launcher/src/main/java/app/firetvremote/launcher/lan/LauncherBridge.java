@@ -6,6 +6,7 @@ public final class LauncherBridge {
     public interface Ui { void post(Runnable task); boolean perform(String action); default boolean launch(String pkg) { return false; } default void rowsChanged() {} }
     public interface Signal { void changed(); }
     public volatile boolean tmdbConfigured;
+    public volatile MediaJobs artwork;
     public volatile AppsEndpoint apps;
     public volatile AppsEndpoint management;
     public volatile HiddenEndpoint hidden;

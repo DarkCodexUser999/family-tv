@@ -6,24 +6,29 @@ import android.os.Environment;
 import java.io.File;
 
 final class ArtworkFiles {
+    static volatile File privateRoot;
     static File tile(String pkg) {
-        return find("tiles", pkg, ".png");
+        File local=find("tiles",pkg,".png");
+        return local!=null?local:uploaded(pkg,"tile");
     }
 
     static File backdrop(String pkg) {
         File jpeg = find("backdrops", pkg, ".jpg");
-        return jpeg != null ? jpeg : find("backdrops", pkg, ".png");
+        File png=find("backdrops",pkg,".png");
+        return jpeg!=null?jpeg:png!=null?png:uploaded(pkg,"backdrop");
     }
 
     private static File find(String directory, String pkg, String extension) {
         try {
             File root = new File(Environment.getExternalStorageDirectory(), "FamilyTV");
             File file = new File(new File(root, directory), pkg + extension);
-            return file.isFile() && file.canRead() ? file : null;
+            return file.isFile()&&file.canRead()?file:null;
         } catch (SecurityException denied) {
             return null;
         }
     }
+
+    private static File uploaded(String pkg,String kind){File root=privateRoot;if(root==null)return null;File f=new File(root,pkg+"-"+kind+".jpg");return f.isFile()&&f.canRead()?f:null;}
 
     static Bitmap decode(File file, int width, int height, Bitmap.Config format) {
         if (file == null) return null;

@@ -31,6 +31,11 @@ final class ArtCache {
             it.remove();
         }
     }
+    synchronized void removePackage(String pkg){
+        Iterator<Map.Entry<String,Bitmap>> it=entries.entrySet().iterator();
+        while(it.hasNext()){Map.Entry<String,Bitmap> e=it.next();String k=e.getKey();
+            if(k.equals("app:"+pkg)||k.equals("phone:"+pkg)||k.startsWith("shelf/"+pkg+"/")){bytes-=e.getValue().getAllocationByteCount();if(k.startsWith("shelf/"))backdrops--;it.remove();}}
+    }
     synchronized void close() {
         closed = true;
         evictAll();

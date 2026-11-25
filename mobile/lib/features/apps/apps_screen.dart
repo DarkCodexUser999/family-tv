@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart';
 
 import 'apps_controller.dart';
 import 'hidden_editor.dart';
+import '../artwork/artwork_api.dart';
+import '../artwork/artwork_screen.dart';
 import '../../core/api/rows_api.dart';
 import '../rows/rows_controller.dart';
 import '../rows/rows_screen.dart';
@@ -54,6 +56,37 @@ class _AppsScreenState extends State<AppsScreen> with WidgetsBindingObserver {
         appBar: AppBar(
           title: const Text('TV apps'),
           actions: [
+            IconButton(
+              tooltip: 'TV artwork',
+              icon: const Icon(Icons.image_outlined),
+              onPressed:
+                  c.loading ||
+                      c.pending != null ||
+                      c.needsRefresh ||
+                      c.apps.isEmpty
+                  ? null
+                  : () async {
+                      _rowsOpen = true;
+                      c.suspend();
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ArtworkScreen(
+                            apps: c.apps,
+                            api: ArtworkApi(c.credential),
+                          ),
+                        ),
+                      );
+                      if (mounted) {
+                        _rowsOpen = false;
+                        if (WidgetsBinding.instance.lifecycleState ==
+                            AppLifecycleState.resumed) {
+                          c.resume();
+                          await c.refresh();
+                        }
+                      }
+                    },
+            ),
             IconButton(
               tooltip: 'Hidden apps',
               icon: const Icon(Icons.visibility_off_outlined),

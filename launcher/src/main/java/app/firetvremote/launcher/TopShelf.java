@@ -137,6 +137,8 @@ final class TopShelf extends FrameLayout {
         showNow(requested);
     }
 
+    void reload(String pkg){if(pkg.equals(selection)&&!closed){displayed=null;requested=null;settleSelection();}}
+
     void suspend() { suspended = true; removeCallbacks(settle); }
     void resume() { suspended = false; refresh(); if (selection!=null) postOnAnimation(settle); }
 
