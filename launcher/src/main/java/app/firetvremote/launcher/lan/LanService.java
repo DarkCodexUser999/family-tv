@@ -64,6 +64,10 @@ public final class LanService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         LauncherBridge.SHARED.artwork=app.firetvremote.launcher.ArtworkUploads.create(getApplicationContext());
+        LauncherBridge.SHARED.provider=new ProviderSettingsEndpoint(new ProviderSettingsEndpoint.Store(){
+            public boolean enabled(){return getSharedPreferences("phone-artwork",MODE_PRIVATE).getBoolean("enabled",false);}
+            public boolean save(boolean value){return getSharedPreferences("phone-artwork",MODE_PRIVATE).edit().putBoolean("enabled",value).commit();}
+        });
         synchronized (LanService.class) { owner = this; }
         recoverRevocation(getApplicationContext(), this);
         IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);

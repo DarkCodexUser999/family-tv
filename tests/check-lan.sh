@@ -27,6 +27,7 @@ fi
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/RowsEndpoint.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AppLaunch.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/AppsEndpoint.java" \
+    "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ProviderSettingsEndpoint.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/LauncherBridge.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ActionMessage.java" \
     "$root/launcher/src/main/java/app/firetvremote/launcher/lan/ActionDispatcher.java" \

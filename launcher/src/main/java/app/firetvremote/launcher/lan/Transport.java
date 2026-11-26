@@ -108,6 +108,7 @@ public final class Transport extends NanoWSD {
         if (!"/v1/info".equals(session.getUri())) {
             String phone=AuthFilter.phone(phones,session.getHeaders().get("authorization"));
             if(phone==null)return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            if(bridge!=null && session.getUri().startsWith("/v1/provider/"))return provider(session,phone);
             if(bridge!=null && session.getUri().startsWith("/v1/artwork/"))return artwork(session,phone);
             if(bridge!=null && session.getUri().startsWith("/v1/hidden"))return hidden(session,phone);
             if(bridge!=null && "/v1/rows".equals(session.getUri()))return rows(session,phone);
@@ -235,6 +236,19 @@ public final class Transport extends NanoWSD {
                 bridge.rowsChanged();return json(Response.Status.OK,endpoint.snapshot().json());
             }
         }catch(IOException|IllegalArgumentException bad){return error(Response.Status.BAD_REQUEST,"invalid_request");}
+    }
+    private Response provider(IHTTPSession session,String phone){
+        String path=session.getUri();
+        if(session.getMethod()!=Method.POST || !emptyBody(session)
+                || !("/v1/provider/enable".equals(path)||"/v1/provider/disable".equals(path)))
+            return error(Response.Status.BAD_REQUEST,"invalid_request");
+        ProviderSettingsEndpoint endpoint=bridge.provider;
+        if(endpoint==null)return error(Response.Status.SERVICE_UNAVAILABLE,"busy");
+        synchronized(phones){
+            if(!phone.equals(AuthFilter.phone(phones,session.getHeaders().get("authorization"))))return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            try{endpoint.set(path.endsWith("/enable"));return json(Response.Status.OK,"{\"apiVersion\":1,\"accepted\":true}");}
+            catch(IOException failed){return error(Response.Status.SERVICE_UNAVAILABLE,"storage_unavailable");}
+        }
     }
     private Response artwork(IHTTPSession session,String phone){
         String path=session.getUri();
