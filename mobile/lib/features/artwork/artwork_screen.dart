@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/api/apps_api.dart';
 import '../../core/api/models.dart';
 import 'artwork_api.dart';
+import 'tmdb_setup_screen.dart';
 
 class ArtworkScreen extends StatefulWidget {
   const ArtworkScreen({super.key, required this.apps, required this.api});
@@ -217,6 +218,17 @@ class _ArtworkScreenState extends State<ArtworkScreen>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          OutlinedButton(
+            onPressed: busy
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TmdbSetupScreen(),
+                    ),
+                  ),
+            child: const Text('TMDB setup and credits'),
+          ),
           DropdownButtonFormField<String>(
             initialValue: pkg,
             decoration: const InputDecoration(labelText: 'TV app'),

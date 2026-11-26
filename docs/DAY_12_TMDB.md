@@ -19,3 +19,8 @@ Primary references: [FAQ](https://developer.themoviedb.org/docs/faq),
 [application authentication](https://developer.themoviedb.org/docs/authentication-application),
 [images](https://developer.themoviedb.org/docs/image-basics),
 [rate limits](https://developer.themoviedb.org/docs/rate-limiting).
+
+Logo: Travis Bell / TMDB, approved blue-square asset (unmodified rasterization),
+CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/ .
+Source mirror: https://commons.wikimedia.org/wiki/File:Tmdb.new.logo.svg ;
+official asset: https://www.themoviedb.org/assets/2/v4/logos/v2/blue_square_2-d537fb228cf3ded904ef09b136fe3fec72548ebc1fea3fbbd1ad9e36364db38b.svg .
