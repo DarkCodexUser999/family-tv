@@ -68,7 +68,20 @@ class TmdbClient {
           );
         }
         if (response.statusCode == 429) {
-          retryAfter = DateTime.now().add(const Duration(seconds: 60));
+          final value = response.headers.value('retry-after');
+          var seconds = int.tryParse(value ?? '') ?? 60;
+          if (value != null && int.tryParse(value) == null) {
+            try {
+              seconds = HttpDate.parse(value)
+                  .difference(DateTime.now())
+                  .inSeconds;
+            } catch (_) {
+              seconds = 60;
+            }
+          }
+          retryAfter = DateTime.now().add(
+            Duration(seconds: seconds.clamp(60, 3600)),
+          );
           throw const AppFailure(
             'rate_limit',
             'TMDB is busy. Wait a minute before retrying.',

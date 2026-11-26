@@ -19,7 +19,7 @@ public final class RefreshEndpoint {
     }
     public synchronized boolean claim(String phone,String job){
         expire();if(!id.equals(job)||!"phone_required".equals(state))return false;
-        owner=phone;state="running";deadline=clock.now()+60000;return true;
+        owner=phone;state="running";deadline=clock.now()+120000;return true;
     }
     public synchronized boolean finish(String phone,String job,String result){
         expire();if(!id.equals(job)||!owner.equals(phone)||!"running".equals(state))return false;

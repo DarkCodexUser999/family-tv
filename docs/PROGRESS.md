@@ -1,6 +1,6 @@
 # Family TV Remote progress
 
-- Build day: **10 / 14 — hidden editor source/host work; physical acceptance pending**, issue #15.
+- Build day: **12 / 14 — phone TMDB setup and refresh source/host work**, issue #17.
 - Current milestone: reversible phone hide/unhide with named confirmation, private atomic overrides and immediate launch guards. Native iOS and physical TV gates remain open.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
@@ -159,3 +159,11 @@ Issue #15 remains open for physical tile/focus/queued-key/account/memory validat
 - Passed: targeted staging/failure/quota tests, 17 artwork TLS guards, four artwork widgets, protocol validation and Java source compile; full host gate ONCE.
 - No APK builds/screenshots/installs; subsequent CI build jobs skipped as requested. Hardware/native picker/codec checks remain pending.
 - Next: Day 12 only after briefing/go; publish/verify all four commits, update the board and safely eject ExSSD.
+
+## Day 12 — phone-owned TMDB artwork (2026-11-26)
+- Issue #17: default-off write-only TV opt-in; each phone keeps its own read token in secure storage; credits/approved logo included.
+- Bounded verified-HTTPS movie choices, authenticated upload and one coalesced foreground-phone refresh; explicit pending/status/cancel with no polling.
+- Commits: 3372c04, d5aac4a, 182359d and this final failure-test/acceptance increment; no launch/focus/restore or account changes.
+- Passed: targeted Java/TLS provider guards, phone analyzer/artwork/provider tests, protocol and tracked secret scan; full host gate once.
+- No APK builds or installs; live provider/device/native acceptance remains unverified. See DAY_12_TMDB.md.
+- Next: Day 13 status/polish only after briefing/go; verify remote, update board, stop project tools and safely eject ExSSD.

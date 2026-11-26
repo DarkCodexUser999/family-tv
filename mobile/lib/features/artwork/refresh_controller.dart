@@ -13,7 +13,15 @@ class ProviderApi {
   ProviderApi(this.credential);
   final PairCredential credential;
   HttpClient? _client;
-  Future<Map<String, dynamic>> post(String path, {String? job}) async {
+  Future<Map<String, dynamic>> post(String path, {String? job}) =>
+      _request('POST', path, job: job);
+  Future<Map<String, dynamic>> status() =>
+      _request('GET', '/v1/provider/refresh');
+  Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    String? job,
+  }) async {
     final client = PinnedTvApi.clientFor(
       credential.endpoint,
       credential.pinHash,
@@ -21,7 +29,10 @@ class ProviderApi {
     _client = client;
     try {
       return await (() async {
-        final request = await client.postUrl(credential.endpoint.route(path));
+        final request = await client.openUrl(
+          method,
+          credential.endpoint.route(path),
+        );
         request.followRedirects = false;
         request.headers.set('Authorization', 'Bearer ${credential.token}');
         if (job != null) request.headers.set('X-Job-Id', job);

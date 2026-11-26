@@ -9,7 +9,7 @@ public final class RefreshEndpointTest {
   check(jobs.request("tv.other")==null);check(!jobs.claim("phone","stale"));
   check(jobs.claim("phone",id));check(!jobs.claim("second",id));
   check(!jobs.finish("second",id,"complete"));check(!jobs.finish("phone",id,"bad"));
-  now[0]=60001;check(jobs.json().contains("phone_required"));check(!jobs.finish("phone",id,"complete"));
+  now[0]=120001;check(jobs.json().contains("phone_required"));check(!jobs.finish("phone",id,"complete"));
   check(jobs.claim("second",id));check(jobs.finish("second",id,"error"));
   check(jobs.json().contains("error"));check(!jobs.request("tv.youtube").equals(pending));
   jobs.disable();check(jobs.json().contains("idle"));check(!jobs.claim("phone",id));

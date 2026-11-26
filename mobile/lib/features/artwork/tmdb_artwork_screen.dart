@@ -114,6 +114,23 @@ class _TmdbArtworkScreenState extends State<TmdbArtworkScreen>
                 }),
           child: const Text('Disable phone artwork on TV'),
         ),
+        OutlinedButton(
+          onPressed: busy
+              ? null
+              : () => action((update) async {
+                  final result = await provider.status();
+                  const labels = {
+                    'idle': 'No refresh requested.',
+                    'phone_required': 'Refresh pending: open a phone with its own TMDB setup.',
+                    'running': 'A phone is refreshing artwork.',
+                    'complete': 'Backdrop refresh completed.',
+                    'canceled': 'Refresh canceled.',
+                    'error': 'Refresh failed. Retry explicitly when ready.',
+                  };
+                  update(labels[result['state']] ?? 'Unknown refresh status.');
+                }),
+          child: const Text('Check refresh status'),
+        ),
         TextField(
           controller: query,
           maxLength: 100,
@@ -125,8 +142,8 @@ class _TmdbArtworkScreenState extends State<TmdbArtworkScreen>
               ? null
               : () => action((update) async {
                   final stamp = generation;
-                    final token = await settings.load();
-                    if (!mounted || stamp != generation) return;
+                  final token = await settings.load();
+                  if (!mounted || stamp != generation) return;
                   if (token == null) {
                     throw const AppFailure(
                       'phone_required',
@@ -134,7 +151,9 @@ class _TmdbArtworkScreenState extends State<TmdbArtworkScreen>
                     );
                   }
                   final found = await tmdb.search(token, query.text);
-                  if (mounted && stamp == generation) setState(() => choices = found);
+                  if (mounted && stamp == generation) {
+                    setState(() => choices = found);
+                  }
                   update(
                     found.isEmpty ? 'No matching backdrops.' : 'Choose a movie to replace this app’s uploaded backdrop.',
                   );
