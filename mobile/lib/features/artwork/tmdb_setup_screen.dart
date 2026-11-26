@@ -81,8 +81,14 @@ class _TmdbSetupScreenState extends State<TmdbSetupScreen> {
         ),
         Semantics(liveRegion: true, child: Text(message)),
         const Divider(),
-        Image.asset('assets/tmdb-approved.png', width: 96, height: 96, alignment: Alignment.centerLeft, semanticLabel: 'TMDB'),
-      const Text('Credits', style: TextStyle(fontSize: 20)),
+        Image.asset(
+          'assets/tmdb-approved.png',
+          width: 96,
+          height: 96,
+          alignment: Alignment.centerLeft,
+          semanticLabel: 'TMDB',
+        ),
+        const Text('Credits', style: TextStyle(fontSize: 20)),
         const Text(
           'This product uses the TMDB API but is not endorsed or certified by TMDB.',
         ),

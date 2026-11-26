@@ -9,6 +9,7 @@ import '../../core/api/apps_api.dart';
 import '../../core/api/models.dart';
 import 'artwork_api.dart';
 import 'tmdb_setup_screen.dart';
+import 'tmdb_artwork_screen.dart';
 
 class ArtworkScreen extends StatefulWidget {
   const ArtworkScreen({super.key, required this.apps, required this.api});
@@ -228,6 +229,10 @@ class _ArtworkScreenState extends State<ArtworkScreen>
                     ),
                   ),
             child: const Text('TMDB setup and credits'),
+          ),
+          OutlinedButton(
+            onPressed: busy || pkg == null ? null : () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TmdbArtworkScreen(pkg: pkg!, api: widget.api))),
+            child: const Text('Choose a movie backdrop'),
           ),
           DropdownButtonFormField<String>(
             initialValue: pkg,

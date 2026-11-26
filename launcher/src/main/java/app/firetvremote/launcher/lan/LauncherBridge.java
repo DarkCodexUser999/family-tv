@@ -7,6 +7,7 @@ public final class LauncherBridge {
     public interface Signal { void changed(); }
     public volatile boolean tmdbConfigured;
     public volatile ProviderSettingsEndpoint provider;
+    public final RefreshEndpoint refresh = new RefreshEndpoint();
     public volatile MediaJobs artwork;
     public volatile AppsEndpoint apps;
     public volatile AppsEndpoint management;

@@ -239,6 +239,7 @@ public final class Transport extends NanoWSD {
     }
     private Response provider(IHTTPSession session,String phone){
         String path=session.getUri();
+        if(path.startsWith("/v1/provider/refresh"))return refresh(session,phone);
         if(session.getMethod()!=Method.POST || !emptyBody(session)
                 || !("/v1/provider/enable".equals(path)||"/v1/provider/disable".equals(path)))
             return error(Response.Status.BAD_REQUEST,"invalid_request");
@@ -246,8 +247,27 @@ public final class Transport extends NanoWSD {
         if(endpoint==null)return error(Response.Status.SERVICE_UNAVAILABLE,"busy");
         synchronized(phones){
             if(!phone.equals(AuthFilter.phone(phones,session.getHeaders().get("authorization"))))return error(Response.Status.UNAUTHORIZED,"unauthorized");
-            try{endpoint.set(path.endsWith("/enable"));return json(Response.Status.OK,"{\"apiVersion\":1,\"accepted\":true}");}
+            try{endpoint.set(path.endsWith("/enable"));if(path.endsWith("/disable"))bridge.refresh.disable();return json(Response.Status.OK,"{\"apiVersion\":1,\"accepted\":true}");}
             catch(IOException failed){return error(Response.Status.SERVICE_UNAVAILABLE,"storage_unavailable");}
+        }
+    }
+    private Response refresh(IHTTPSession session,String phone){
+        String path=session.getUri();
+        if(!emptyBody(session))return error(Response.Status.BAD_REQUEST,"invalid_request");
+        synchronized(phones){
+            if(!phone.equals(AuthFilter.phone(phones,session.getHeaders().get("authorization"))))return error(Response.Status.UNAUTHORIZED,"unauthorized");
+            if(bridge.provider==null||!bridge.provider.enabled())return error(Response.Status.CONFLICT,"provider_disabled");
+            if(session.getMethod()==Method.GET && "/v1/provider/refresh".equals(path))return json(Response.Status.OK,bridge.refresh.json());
+            if(session.getMethod()!=Method.POST || !path.matches("/v1/provider/refresh/[A-Za-z0-9_.]{1,160}(/(claim|complete|canceled|error))?"))return error(Response.Status.BAD_REQUEST,"invalid_request");
+            String[] parts=path.split("/");String pkg=parts[4];
+            if(bridge.apps==null||!bridge.apps.contains(pkg))return error(Response.Status.NOT_FOUND,"not_found");
+            if(parts.length==5){String result=bridge.refresh.request(pkg);return result==null?error(Response.Status.CONFLICT,"busy"):json(Response.Status.OK,result);}
+            String id=session.getHeaders().get("x-job-id");
+            if(id==null||!id.matches("[a-f0-9-]{36}"))return error(Response.Status.BAD_REQUEST,"invalid_request");
+            // A receipt is package-bound; other target paths cannot complete a claim.
+            if(!bridge.refresh.json().contains("\"package\":\""+pkg+"\""))return error(Response.Status.CONFLICT,"stale_job");
+            boolean accepted="claim".equals(parts[5])?bridge.refresh.claim(phone,id):bridge.refresh.finish(phone,id,parts[5]);
+            return accepted?json(Response.Status.OK,bridge.refresh.json()):error(Response.Status.CONFLICT,"stale_job");
         }
     }
     private Response artwork(IHTTPSession session,String phone){
