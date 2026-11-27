@@ -7,6 +7,9 @@ import '../../core/api/apps_api.dart';
 import '../apps/apps_controller.dart';
 import '../apps/apps_screen.dart';
 import 'remote_controller.dart';
+import '../status/status_api.dart';
+import '../status/status_controller.dart';
+import '../status/status_screen.dart';
 
 class RemoteScreen extends StatefulWidget {
   const RemoteScreen({
@@ -67,6 +70,32 @@ class _RemoteScreenState extends State<RemoteScreen>
       appBar: AppBar(
         title: const Text('Family TV remote'),
         actions: [
+          IconButton(
+            tooltip: 'Connection status',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () async {
+              _appsOpen = true;
+              c.suspend();
+              await Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => StatusScreen(
+                    controller: StatusController(
+                      StatusApi(),
+                      widget.credential,
+                    ),
+                  ),
+                ),
+              );
+              if (mounted) {
+                _appsOpen = false;
+                if (WidgetsBinding.instance.lifecycleState ==
+                    AppLifecycleState.resumed) {
+                  c.resume();
+                }
+              }
+            },
+          ),
           IconButton(
             tooltip: 'TV apps',
             icon: const Icon(Icons.apps),

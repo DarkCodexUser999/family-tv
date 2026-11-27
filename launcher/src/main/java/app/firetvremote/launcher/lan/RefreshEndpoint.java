@@ -27,5 +27,6 @@ public final class RefreshEndpoint {
         state=result;owner="";return true;
     }
     public synchronized void disable(){state="idle";pkg="";id="";owner="";}
+    public synchronized String state(){expire();return state;}
     public synchronized String json(){expire();return "{\"apiVersion\":1,\"jobId\":\""+id+"\",\"package\":\""+pkg+"\",\"state\":\""+state+"\"}";}
 }

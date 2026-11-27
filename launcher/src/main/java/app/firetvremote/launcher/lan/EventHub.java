@@ -70,7 +70,7 @@ public final class EventHub implements LauncherBridge.Signal {
     public ScheduledFuture<?> deadline(Runnable close,long millis){
         try{return deadlines.schedule(close,millis,TimeUnit.MILLISECONDS);}catch(java.util.concurrent.RejectedExecutionException stopped){close.run();return null;}
     }
-    public String status(){return "{\"apiVersion\":1,\"enabled\":true,\"foreground\":"+bridge.foreground()+",\"canNavigate\":"+bridge.canNavigate()+",\"catalogRevision\":0,\"tmdbConfigured\":"+bridge.tmdbConfigured+"}";}
+    public String status(){return StatusEndpoint.json(bridge);}
     private String state(){
         // Read epoch twice so a concurrent lifecycle transition cannot advertise an old true flag with a new epoch.
         long before,epoch;boolean foreground,navigate;String focus;
