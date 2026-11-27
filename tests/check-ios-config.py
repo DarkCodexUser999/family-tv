@@ -15,4 +15,8 @@ project = (r/'mobile/ios/Runner.xcodeproj/project.pbxproj').read_text()
 assert 'Runner/DebugProfile.entitlements' in project and 'Runner/Release.entitlements' in project
 assert 'IPHONEOS_DEPLOYMENT_TARGET = 15.0' in project
 assert "platform :ios, '15.0'" in (r/'mobile/ios/Podfile').read_text()
+for name, mode in [('Debug', 'debug'), ('Release', 'release')]:
+    config = (r/f'mobile/ios/Flutter/{name}.xcconfig').read_text()
+    pods = f'#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.{mode}.xcconfig"'
+    assert pods in config and config.index(pods) < config.index('#include "Generated.xcconfig"')
 print('PASS: iOS plist/Bonjour/ATS/entitlements/deployment source guards (native build UNVERIFIED)')

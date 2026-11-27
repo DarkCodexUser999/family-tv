@@ -1,7 +1,7 @@
 # Family TV Remote progress
 
-- Build day: **12 / 14 — phone TMDB setup and refresh source/host work**, issue #17.
-- Current milestone: reversible phone hide/unhide with named confirmation, private atomic overrides and immediate launch guards. Native iOS and physical TV gates remain open.
+- Build day: **13 / 14 — connection status, readability and CI**, issue #18.
+- Current milestone: readable phone connection/job snapshots and reproducible Android/iOS simulator compilation; physical resource and device acceptance remain pending.
 - Baseline: Java launcher `/launcher`, legacy Android `/remote`, TCP/HMAC `/shared`, existing build/regression GitHub Actions. The protocol folder exists; Flutter `/mobile` is now scaffolded with shared Android/iOS pairing source.
 - Contribution identity verified: `289677099+DarkCodexUser999@users.noreply.github.com` matches GitHub account `DarkCodexUser999` (ID 289677099).
 
@@ -167,3 +167,11 @@ Issue #15 remains open for physical tile/focus/queued-key/account/memory validat
 - Passed: targeted Java/TLS provider guards, phone analyzer/artwork/provider tests, protocol and tracked secret scan; full host gate once.
 - No APK builds or installs; live provider/device/native acceptance remains unverified. See DAY_12_TMDB.md.
 - Next: Day 13 status/polish only after briefing/go; verify remote, update board, stop project tools and safely eject ExSSD.
+
+## Day 13 — status and CI (2026-11-27)
+- Issue #18: bounded cached TV status/capabilities and phone connection/job screen; manual/foreground refresh, no polling or new service.
+- Larger high-contrast text, disabled-control explanations, stale-reply/revocation/background guards; 200% text layout covered.
+- Increments: fc66acd, 54cceec, 0471fdb and this iOS configuration/acceptance fix; the scrolling assertion was corrected in increment three.
+- Passed: analyzer, 12 targeted phone tests, real TLS status checks, protocol validation and full host gate once. Initial CI exposed missing iOS Pods includes, fixed with source guards; final CI evidence is on the project card.
+- No local APK build/install; enabled/disabled PSS, latency and physical acceptance remain pending.
+- Next: Day 14 release/handoff only after briefing/go; update the board after remote verification, stop project tools and safely eject ExSSD.
