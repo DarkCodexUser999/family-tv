@@ -144,7 +144,11 @@ class _RemoteScreenState extends State<RemoteScreen>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  c.state?.canNavigate == true
+                  !c.connected
+                      ? 'Reconnect to enable the pad. Check home Wi-Fi and Remote access on the TV.'
+                      : c.pending != null
+                      ? 'Waiting for the TV to confirm your last input. Controls unlock after confirmation.'
+                      : c.state?.canNavigate == true
                       ? 'Navigate Family TV using the pad below.'
                       : c.state?.foreground == true
                       ? 'Family TV is opening an app. Please wait.'

@@ -35,6 +35,14 @@ class _StatusScreenState extends State<StatusScreen>
     super.dispose();
   }
 
+  static const capabilityLabels = {
+    'navigate': 'Family TV navigation',
+    'launch': 'Launch installed TV apps',
+    'rows': 'Edit app rows',
+    'hidden': 'Hide and show apps',
+    'artwork': 'Upload artwork',
+    'refresh': 'Phone artwork refresh',
+  };
   static const jobLabels = {
     'idle': 'No refresh requested',
     'phone_required': 'Waiting for a phone with TMDB setup',
@@ -49,7 +57,9 @@ class _StatusScreenState extends State<StatusScreen>
     builder: (context, _) => Scaffold(
       appBar: AppBar(title: const Text('Connection and status')),
       body: SafeArea(
-        child: ListView(
+        child: DefaultTextStyle.merge(
+          style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface),
+          child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
             Semantics(
@@ -77,10 +87,13 @@ class _StatusScreenState extends State<StatusScreen>
               Text('Artwork: ${jobLabels[value.job]}'),
               Text('App catalog version: ${value.revision}'),
               const SizedBox(height: 16),
-              const Text('Launcher capabilities'),
+              Text(
+                'Launcher capabilities',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               for (final feature in value.capabilities.entries)
                 Text(
-                  '${feature.key}: ${feature.value ? "available" : "unavailable"}',
+                  '${capabilityLabels[feature.key]}: ${feature.value ? "available" : "unavailable on this launcher"}',
                 ),
             ],
             const SizedBox(height: 24),
@@ -92,6 +105,7 @@ class _StatusScreenState extends State<StatusScreen>
               'Snapshot only; refresh to check again. Controls apply to Family TV, not other apps, TV power or volume.',
             ),
           ],
+        ),
         ),
       ),
     ),
