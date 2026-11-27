@@ -88,6 +88,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Verify pinned Flutter revision
+        run: test "$(git -C flutter-sdk rev-parse HEAD)" = ab2912035e160d9cad6306df307576da6128ebdb
       - name: Resolve locked dependencies
         run: sh scripts/flutter.sh pub get --enforce-lockfile
       - name: Analyze and test the phone companion
@@ -98,3 +100,36 @@ jobs:
         run: sh scripts/flutter.sh build apk --debug
       - name: Verify the dependency lock
         run: git diff --exit-code -- mobile/pubspec.lock
+
+  ios-simulator:
+    name: iOS simulator build (no signing or device acceptance)
+    runs-on: macos-15
+    timeout-minutes: 35
+    env:
+      FLUTTER_BIN: ${{ github.workspace }}/flutter-sdk/bin/flutter
+    steps:
+      - name: Check out Family TV
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the pinned Flutter SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: flutter/flutter
+          ref: ab2912035e160d9cad6306df307576da6128ebdb
+          path: flutter-sdk
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify Flutter and available Apple toolchain
+        run: |
+          test "$(git -C flutter-sdk rev-parse HEAD)" = ab2912035e160d9cad6306df307576da6128ebdb
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+      - name: Resolve locked dependencies
+        run: sh scripts/flutter.sh pub get --enforce-lockfile
+      - name: Build the iOS simulator app without signing
+        run: sh scripts/flutter.sh build ios --simulator --debug --no-codesign
+      - name: Verify dependency lock and report scope
+        run: |
+          git diff --exit-code -- mobile/pubspec.lock
+          echo 'iOS simulator compilation only: no phone/TV, pairing, permissions, memory or latency acceptance.' >> "$GITHUB_STEP_SUMMARY"

@@ -96,10 +96,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), null);
+      await tester.scrollUntilVisible(find.textContaining('Waiting for a phone'), 150);
       expect(find.textContaining('Waiting for a phone'), findsOneWidget);
+      await tester.scrollUntilVisible(find.textContaining('Family TV navigation: unavailable'), 150);
+      expect(find.textContaining('Family TV navigation: unavailable'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Refresh status'), 200);
       expect(tester.takeException(), null);
-      expect(find.textContaining('unavailable'), findsWidgets);
+      expect(find.text('Refresh status'), findsOneWidget);
     },
   );
 }

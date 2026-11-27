@@ -36,6 +36,10 @@ public final class ProviderTransportTest {
   byte[] empty=new byte[0];String path="/v1/provider/refresh/tv.youtube";
   try{
    server.open();
+   check(request("GET","/v1/status","",empty).startsWith("HTTP/1.1 401"));
+   String status=request("GET","/v1/status",auth,empty);
+   check(status.startsWith("HTTP/1.1 200") && status.contains("\"catalogRevision\":1") && status.contains("\"capabilities\""));
+   check(!status.contains(token) && !status.contains("jobId") && status.length()<4096);
    check(request("POST","/v1/provider/enable","",empty).startsWith("HTTP/1.1 401"));
    check(request("GET","/v1/provider/enable",auth,empty).startsWith("HTTP/1.1 400"));
    check(request("POST",path,auth,empty).startsWith("HTTP/1.1 409"));
